@@ -1,0 +1,33 @@
+package raikiri-wit:bindings;
+
+interface wasi-http {
+	/// The HTTP status code.
+	type http-status = u16;
+
+	/// The HTTP body.
+	type body = list<u8>;
+
+	/// The HTTP headers represented as a list of (name, value) pairs.
+	type headers = list<tuple<string, string>>;
+
+	/// An HTTP request.
+	record request {
+		headers: headers,
+		body: body,
+	}
+
+	/// An HTTP response.
+	record module-response {
+		status: http-status,
+		headers: headers,
+		body: body,
+	}
+
+	handle-http: func(req: request) -> module-response;
+	call-module: func(module-name: string, params: body) -> module-response;
+}
+
+world bindings {
+	import wasi-http;
+	export wasi-http;
+}
