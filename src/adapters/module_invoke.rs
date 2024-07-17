@@ -1,63 +1,21 @@
-use exports::raikiri_wit::bindings::wasi_http::{Request, ModuleResponse};
-use futures::executor::block_on;
 use homedir::get_my_home;
-use raikiri_wit::bindings::wasi_http::{Body, Headers};
-use wasmtime::{component::{Component, Linker, ResourceTable}, Config, Engine, Store};
-use wasmtime_wasi::{pipe::MemoryOutputPipe, WasiCtx, WasiCtxBuilder, WasiView};
+use tokio::sync::mpsc::Sender;
+use wasmtime::{
+    component::{Component, Linker, ResourceTable},
+    Config, Engine, Store,
+};
+use wasmtime_wasi::{pipe::MemoryOutputPipe, WasiCtxBuilder};
+use wasmtime_wasi_http::WasiHttpCtx;
 
-wasmtime::component::bindgen!();
-
-struct AppCtx {}
-struct Wasi<T: Send>(T, AppCtx, ResourceTable, WasiCtx);
-
-impl WasiView for Wasi<ModuleImports> {
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.2
-    }
-
-    fn ctx(&mut self) -> &mut WasiCtx {
-        &mut self.3
-    }
-}
-
-#[derive(Default)]
-pub struct ModuleImports {
-    call_stack: Vec<String>
-}
-
-impl raikiri_wit::bindings::wasi_http::Host for ModuleImports {
-
-    fn handle_http(&mut self, _: raikiri_wit::bindings::wasi_http::Request) -> raikiri_wit::bindings::wasi_http::ModuleResponse {
-        todo!()
-    }
-
-    fn call_module(
-        &mut self,
-        module_name: wasmtime::component::__internal::String,
-        params: Body,
-    ) -> raikiri_wit::bindings::wasi_http::ModuleResponse {
-        let result = block_on(invoke_wasm_module(
-            module_name,
-            params.to_vec(),
-            self.call_stack.clone(),
-        ))
-        .expect("error retrieving module result");
-        raikiri_wit::bindings::wasi_http::ModuleResponse {
-            status: result.status,
-            body: result.body,
-            headers: result
-                .headers
-                .iter()
-                .map(|header| (header.0.clone(), header.1.clone()))
-                .collect::<Headers>(),
-        }
-    }
-}
+use super::{
+    module_events::ModuleEvent, module_imports::ModuleImports, wasi_http_linker, wasi_view::Wasi, wit::{exports::raikiri_wit::bindings::wasi_http::{ModuleResponse, Request}, Bindings}
+};
 
 pub async fn invoke_wasm_module(
     username_module_name: String,
     params: Vec<u8>,
     mut call_stack: Vec<String>,
+    event_sender: Sender<ModuleEvent>,
 ) -> Result<ModuleResponse, Box<dyn std::error::Error>> {
     if call_stack.len() > 10 {
         return Ok(ModuleResponse {
@@ -82,58 +40,72 @@ pub async fn invoke_wasm_module(
     config.cache_config_load_default()?;
     config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
     config.wasm_component_model(true);
+    config.debug_info(true);
     let engine = Engine::new(&config)?;
     let mut linker = Linker::<Wasi<ModuleImports>>::new(&engine);
-    Bindings::add_to_linker(&mut linker, |x| &mut x.0)?;
+    linker.allow_shadowing(true);
     wasmtime_wasi::add_to_linker_sync(&mut linker)?;
+    wasi_http_linker::add_to_linker_sync(&mut linker)?;
+    Bindings::add_to_linker(&mut linker, |x| &mut x.data)?;
     let stdout = MemoryOutputPipe::new(0x4000);
-    let module_imports = ModuleImports { call_stack };
+    let module_imports = ModuleImports {
+        call_stack,
+        event_sender: event_sender.clone(),
+    };
     let wasi_ctx = WasiCtxBuilder::new()
         .inherit_stdin()
         .stdout(stdout.clone())
         .inherit_args()
         .build();
-    let wasi: Wasi<ModuleImports> = Wasi(module_imports, AppCtx {}, ResourceTable::new(), wasi_ctx);
-    unsafe {
-        let component = Component::deserialize_file(&engine, wasm_path)?;
-        let mut store: Store<Wasi<ModuleImports>> = Store::new(&engine, wasi);
-        let (bindings, _) = Bindings::instantiate(&mut store, &component, &linker)?;
-        let timer = tokio::time::timeout(
-            // TODO: make timeout configurable
-            tokio::time::Duration::from_millis(300),
-            tokio::task::spawn_blocking(move || {
-                bindings.raikiri_wit_bindings_wasi_http().call_handle_http(&mut store, &Request {
+    let wasi_http_ctx = WasiHttpCtx::new();
+    let wasi: Wasi<ModuleImports> = Wasi {
+        data: module_imports,
+        table: ResourceTable::new(),
+        ctx: wasi_ctx,
+        http_ctx: wasi_http_ctx
+    };
+    let mut store: Store<Wasi<ModuleImports>> = Store::new(&engine, wasi);
+    let component = unsafe { Component::deserialize_file(&engine, wasm_path)? };
+    let (bindings, _) = Bindings::instantiate(&mut store, &component, &linker)?;
+    let timer = tokio::time::timeout(
+        // TODO: make timeout configurable
+        tokio::time::Duration::from_millis(300),
+        tokio::task::spawn_blocking(move || {
+            bindings.raikiri_wit_bindings_wasi_http().call_handle_http(
+                &mut store,
+                &Request {
                     body: params,
-                    headers: Vec::new()
-                })
-            }),
-        )
-        .await;
-        let runtime_result = match timer {
-            Err(_) => {
-                return Ok(ModuleResponse {
-                    status: 500,
-                    body: "EXECUTION TIMEOUT".as_bytes().to_vec(),
-                    headers: vec![],
-                });
-            }
-            Ok(v) => v.unwrap(),
-        };
-        let module_result = match runtime_result {
-            Err(e) => {
-                eprintln!("{e}");
-                return Ok(ModuleResponse {
-                    status: 500,
-                    body: format!("RUNTIME ERROR: {}", e)
-                        .as_bytes()
-                        .to_vec(),
-                    headers: vec![],
-                });
-            }
-            Ok(v) => v,
-        };
-        println!("result: {}", String::from_utf8(module_result.body.to_vec())?);
-        println!("stoud: {}", String::from_utf8(stdout.contents().to_vec())?);
-        Ok(module_result)
+                    headers: Vec::new(),
+                },
+            )
+        }),
+    )
+    .await;
+    event_sender
+        .send(ModuleEvent::Stdout {
+            stdout,
+            username_module_name,
+        })
+        .await?;
+    let runtime_result = match timer {
+        Err(_) => {
+            return Ok(ModuleResponse {
+                status: 500,
+                body: "EXECUTION TIMEOUT".as_bytes().to_vec(),
+                headers: vec![],
+            });
+        }
+        Ok(v) => v.unwrap(),
+    };
+    match runtime_result {
+        Err(e) => {
+            eprintln!("{e}");
+            Ok(ModuleResponse {
+                status: 500,
+                body: format!("RUNTIME ERROR: {}", e).as_bytes().to_vec(),
+                headers: vec![],
+            })
+        },
+        Ok(v) => Ok(v),
     }
 }

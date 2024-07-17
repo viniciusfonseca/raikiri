@@ -1,3 +1,9 @@
+pub mod module_events;
+pub mod module_imports;
 pub mod module_invoke;
 pub mod module_storage;
 pub mod setup_app_dir;
+pub mod wasi_http_linker;
+pub mod wasi_http_view;
+pub mod wasi_view;
+pub mod wit;

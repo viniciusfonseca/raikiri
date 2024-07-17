@@ -1,6 +1,6 @@
 
 use adapters::{
-    module_invoke, module_storage, setup_app_dir::setup_app_dir
+    module_events::ModuleEvent, module_invoke, module_storage, setup_app_dir::setup_app_dir
 };
 use clap::{Parser, Subcommand};
 use server::start_server;
@@ -91,12 +91,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ModuleSubcommand::Add { name, path } => {
                     let username_module_name = format!("{username}.{name}");
                     module_storage::add_module(username, name.clone(), path).await?;
-                    println!("Successfully added module {username_module_name}.{name}");
+                    println!("Successfully added module {username_module_name}");
                 },
                 ModuleSubcommand::Run { name, params } => {
                     let username_module_name = format!("{username}.{name}");
-                    println!("invoking module {username_module_name}");
-                    module_invoke::invoke_wasm_module(username_module_name, params, Vec::new()).await?;
+                    let (tx, mut rx) = tokio::sync::mpsc::channel::<ModuleEvent>(0xFFFF);
+                    tokio::spawn(async move {
+                        while let Some(message) = rx.recv().await {
+                            match message {
+                                ModuleEvent::Stdout { stdout, username_module_name } =>
+                                    println!("Stdout from {username_module_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap()),
+                            }
+                        }
+                    });
+                    let response = module_invoke::invoke_wasm_module(username_module_name.clone(), params, Vec::new(), tx).await?;
+                    println!("Successfully invoked {username_module_name}");
+                    println!("Response: {}", String::from_utf8(response.body)?);
                 }
             }
         }
