@@ -24,3 +24,10 @@ wasmtime-wasi = "24.0.0"
 wasmtime-wasi-http = "24.0.0"
 whoami = "1.5.1"
 wit-bindgen = "0.27.0"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "raikiri"
+path = "src/main.rs"
