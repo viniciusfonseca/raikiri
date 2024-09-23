@@ -3,9 +3,11 @@ use adapters::{
 };
 use clap::{Parser, Subcommand};
 use futures::stream;
+use http::HeaderValue;
 use http_body_util::{combinators::BoxBody, StreamBody};
 use hyper::body::{Bytes, Frame};
 use serde::Deserialize;
+use serde_json::{Map, Value};
 // use serde_json::{Map, Value};
 use server::start_server;
 
@@ -73,7 +75,7 @@ enum ComponentSubcommand {
 #[derive(Deserialize)]
 struct Request {
     method: String,
-    // headers: Map<String, Value>,
+    headers: Map<String, Value>,
     body: Vec<u8>
 }
 
@@ -93,7 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match command {
                 ServerSubcommand::Start { port } => {
                     println!("starting Raikiri server at port: {port}");
-                    start_server();
+                    start_server().await?;
                 }
             }
         },
@@ -116,12 +118,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     });
                     let request = serde_json::from_slice::<Request>(&request)?;
-                    let request_builder = hyper::Request::builder()
+                    let mut request_builder = hyper::Request::builder()
                         .method(request.method.as_str())
                         .uri("");
-                    // for (k, v) in request.headers {
-                    //     request_builder.header(k, HeaderValue::from_str(v.as_str().unwrap())?);
-                    // }
+                    for (k, v) in request.headers {
+                        request_builder = request_builder.header(k, HeaderValue::from_str(v.as_str().unwrap())?);
+                    }
                     let request = request_builder.body(BoxBody::new(StreamBody::new(stream::iter(
                         request.body.chunks(16 * 1024)
                             .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
