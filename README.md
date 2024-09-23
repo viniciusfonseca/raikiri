@@ -6,7 +6,7 @@ First install Raikiri:
 cargo install raikiri
 ```
 
-Run a WASM module:
+Run a WASM component:
 
 ```sh
 raikiri wasm run ./helloworld.wasm
@@ -28,14 +28,14 @@ Create a `~/.raikiriconf` file with the following content to use the local serve
 URL=http://localhost:3000
 ```
 
-Create a module:
+Create a component:
 
 ```sh
-raikiri module add --name helloworld --path ./helloworld.wasm
+raikiri comopnent add --name helloworld --path ./helloworld.wasm
 ```
 
-Run the module:
+Run the component:
 
 ```sh
-raikiri module run --name helloworld --params '{"param0": "foo", "param1": "bar"}'
+raikiri component run --name helloworld --params '{"param0": "foo", "param1": "bar"}'
 ```

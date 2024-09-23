@@ -1,8 +1,12 @@
-
 use adapters::{
-    module_events::ModuleEvent, module_invoke, module_storage, setup_app_dir::setup_app_dir
+    component_events::ComponentEvent, component_invoke, component_storage, setup_app_dir::setup_app_dir
 };
 use clap::{Parser, Subcommand};
+use futures::stream;
+use http_body_util::{combinators::BoxBody, StreamBody};
+use hyper::body::{Bytes, Frame};
+use serde::Deserialize;
+// use serde_json::{Map, Value};
 use server::start_server;
 
 mod server;
@@ -29,9 +33,9 @@ enum Commands {
         command: ServerSubcommand
     },
     #[command(arg_required_else_help = true)]
-    Module {
+    Component {
         #[command(subcommand)]
-        command: ModuleSubcommand
+        command: ComponentSubcommand
     }
 }
 
@@ -51,7 +55,7 @@ enum ServerSubcommand {
 }
 
 #[derive(Debug, Clone, Subcommand)]
-enum ModuleSubcommand {
+enum ComponentSubcommand {
     Add {
         #[arg(short, long)]
         name: String,
@@ -62,8 +66,15 @@ enum ModuleSubcommand {
         #[arg(short, long)]
         name: String,
         #[arg(short, long)]
-        params: Vec<u8>,
+        request: Vec<u8>,
     }
+}
+
+#[derive(Deserialize)]
+struct Request {
+    method: String,
+    // headers: Map<String, Value>,
+    body: Vec<u8>
 }
 
 #[tokio::main]
@@ -86,27 +97,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         },
-        Commands::Module { command } => {
+        Commands::Component { command } => {
             match command {
-                ModuleSubcommand::Add { name, path } => {
-                    let username_module_name = format!("{username}.{name}");
-                    module_storage::add_module(username, name.clone(), path).await?;
-                    println!("Successfully added module {username_module_name}");
+                ComponentSubcommand::Add { name, path } => {
+                    let username_component_name = format!("{username}.{name}");
+                    component_storage::add_component(username, name.clone(), path).await?;
+                    println!("Successfully added component {username_component_name}");
                 },
-                ModuleSubcommand::Run { name, params } => {
-                    let username_module_name = format!("{username}.{name}");
-                    let (tx, mut rx) = tokio::sync::mpsc::channel::<ModuleEvent>(0xFFFF);
+                ComponentSubcommand::Run { name, request } => {
+                    let username_component_name = format!("{username}.{name}");
+                    let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
                     tokio::spawn(async move {
                         while let Some(message) = rx.recv().await {
                             match message {
-                                ModuleEvent::Stdout { stdout, username_module_name } =>
-                                    println!("Stdout from {username_module_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap()),
+                                ComponentEvent::Stdout { stdout, username_component_name } =>
+                                    println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap()),
                             }
                         }
                     });
-                    let response = module_invoke::invoke_wasm_module(username_module_name.clone(), params, Vec::new(), tx).await?;
-                    println!("Successfully invoked {username_module_name}");
-                    println!("Response: {}", String::from_utf8(response.body)?);
+                    let request = serde_json::from_slice::<Request>(&request)?;
+                    let request_builder = hyper::Request::builder()
+                        .method(request.method.as_str())
+                        .uri("");
+                    // for (k, v) in request.headers {
+                    //     request_builder.header(k, HeaderValue::from_str(v.as_str().unwrap())?);
+                    // }
+                    let request = request_builder.body(BoxBody::new(StreamBody::new(stream::iter(
+                        request.body.chunks(16 * 1024)
+                            .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
+                            .collect::<Vec<_>>()
+                    ))))?;
+                    let response = component_invoke::invoke_component(username_component_name.clone(), request, Vec::new(), tx).await?;
+                    println!("Successfully invoked {username_component_name}");
+                    println!("Response: {}", String::from_utf8(response.into_body().to_bytes().to_vec())?);
                 }
             }
         }

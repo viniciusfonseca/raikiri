@@ -1,7 +1,7 @@
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiView};
 use wasmtime_wasi_http::WasiHttpCtx;
 
-use super::module_imports::ModuleImports;
+use super::component_imports::ComponentImports;
 
 pub struct Wasi<T: Send> {
     pub data: T,
@@ -10,7 +10,7 @@ pub struct Wasi<T: Send> {
     pub http_ctx: WasiHttpCtx,
 }
 
-impl WasiView for Wasi<ModuleImports> {
+impl WasiView for Wasi<ComponentImports> {
     fn table(&mut self) -> &mut ResourceTable {
         &mut self.table
     }

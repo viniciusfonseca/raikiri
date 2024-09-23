@@ -11,12 +11,16 @@ clap = { version = "4.5.7", features = ["derive"] }
 clap_derive = { version = "4.5.5" }
 futures = "0.3.30"
 homedir = "0.2.1"
+http = "1.1.0"
+http-body-util = "0.1.2"
 http-server = "0.8.9"
 hyper = { version = "1.4.1", features = ["full"] }
 regex = "1.10.5"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
 tokio = { version = "1.38.0", features = ["full"] }
-wasmtime = "22.0.0"
-wasmtime-wasi = "22.0.0"
-wasmtime-wasi-http = "22.0.0"
+wasmtime = "24.0.0"
+wasmtime-wasi = "24.0.0"
+wasmtime-wasi-http = "24.0.0"
 whoami = "1.5.1"
 wit-bindgen = "0.27.0"
