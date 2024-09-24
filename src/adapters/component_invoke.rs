@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use homedir::get_my_home;
-use http_body_util::{combinators::BoxBody, BodyExt, Collected};
+    use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::body::Bytes;
 use tokio::sync::mpsc::Sender;
 use wasmtime::{
@@ -14,8 +14,6 @@ use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, typ
 use super::{
     component_events::ComponentEvent, component_imports::ComponentImports, wasi_http_linker, wasi_http_view::stream_from_string, wasi_view::Wasi
 };
-
-pub type ComponentResponse = http::Response<Collected<Bytes>>;
 
 async fn build_response(status: u16, body: &str) -> IncomingResponse {
     let resp = http::Response::builder()
