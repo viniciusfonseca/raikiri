@@ -4,7 +4,7 @@ use adapters::{
 use clap::{Parser, Subcommand};
 use futures::stream;
 use http::HeaderValue;
-use http_body_util::{combinators::BoxBody, StreamBody};
+use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
 use hyper::body::{Bytes, Frame};
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -66,14 +66,13 @@ enum ComponentSubcommand {
     },
     Run {
         #[arg(short, long)]
-        name: String,
-        #[arg(short, long)]
         request: Vec<u8>,
     }
 }
 
 #[derive(Deserialize)]
 struct Request {
+    username_component_name: String,
     method: String,
     headers: Map<String, Value>,
     body: Vec<u8>
@@ -106,8 +105,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     component_storage::add_component(username, name.clone(), path).await?;
                     println!("Successfully added component {username_component_name}");
                 },
-                ComponentSubcommand::Run { name, request } => {
-                    let username_component_name = format!("{username}.{name}");
+                ComponentSubcommand::Run { request } => {
+                    let request = serde_json::from_slice::<Request>(&request)?;
+                    let username_component_name = request.username_component_name;
                     let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
                     tokio::spawn(async move {
                         while let Some(message) = rx.recv().await {
@@ -117,7 +117,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     });
-                    let request = serde_json::from_slice::<Request>(&request)?;
                     let mut request_builder = hyper::Request::builder()
                         .method(request.method.as_str())
                         .uri("");
@@ -131,7 +130,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ))))?;
                     let response = component_invoke::invoke_component(username_component_name.clone(), request, Vec::new(), tx).await?;
                     println!("Successfully invoked {username_component_name}");
-                    println!("Response: {}", String::from_utf8(response.into_body().to_bytes().to_vec())?);
+                    let resp_body = BodyExt::collect(response.resp.into_body()).await?.to_bytes().to_vec();
+                    println!("Response: {}", String::from_utf8(resp_body)?);
                 }
             }
         }

@@ -1,3 +1,6 @@
+use futures::stream;
+use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
+use hyper::body::{Body, Bytes, Frame};
 use wasmtime_wasi::ResourceTable;
 use wasmtime_wasi_http::{
     body::HyperOutgoingBody,
@@ -5,7 +8,15 @@ use wasmtime_wasi_http::{
     HttpResult, WasiHttpCtx, WasiHttpView,
 };
 
-use super::{component_imports::ComponentImports, wasi_view::Wasi};
+use super::{component_imports::ComponentImports, wasi_view::Wasi, component_invoke::invoke_component};
+
+pub async fn stream_from_string(body: String) -> BoxBody<Bytes, hyper::Error> {
+    BoxBody::new(StreamBody::new(stream::iter(
+        body.into_bytes().to_vec().chunks(16 * 1024)
+            .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
+            .collect::<Vec<_>>()
+    )))
+}
 
 impl WasiHttpView for Wasi<ComponentImports> {
     fn ctx(&mut self) -> &mut WasiHttpCtx {
@@ -22,6 +33,21 @@ impl WasiHttpView for Wasi<ComponentImports> {
         config: OutgoingRequestConfig,
     ) -> HttpResult<HostFutureIncomingResponse> {
         println!("calling send_request from host: {request:?}");
+        if request.uri().host().unwrap().eq("raikiri.components") {
+            let call_stack = self.data.call_stack.clone();
+            let event_sender = self.data.event_sender.clone();
+            let x = wasmtime_wasi::runtime::spawn(async move {
+                let request_builder = hyper::Request::builder();
+                let body = request.into_body().collect().await.unwrap().to_bytes().to_vec();
+                let request = request_builder.body(BoxBody::new(StreamBody::new(stream::iter(
+                    body.chunks(16 * 1024)
+                        .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
+                        .collect::<Vec<_>>()
+                )))).unwrap();
+                Ok(invoke_component("".to_string(), request, call_stack, event_sender).await)
+            });
+            return Ok(HostFutureIncomingResponse::Pending(x))
+        }
         Ok(types::default_send_request(request, config))
     }
 }
