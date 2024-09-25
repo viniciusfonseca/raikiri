@@ -5,5 +5,3 @@ pub struct ComponentImports {
     pub call_stack: Vec<String>,
     pub event_sender: Sender<ComponentEvent>,
 }
-
-// impl wit::Http:: for ComponentImports

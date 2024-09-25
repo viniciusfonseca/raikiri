@@ -12,7 +12,7 @@ use wasmtime_wasi::{pipe::MemoryOutputPipe, WasiCtxBuilder};
 use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, types::IncomingResponse, WasiHttpCtx, WasiHttpView};
 
 use super::{
-    component_events::ComponentEvent, component_imports::ComponentImports, wasi_http_linker, wasi_http_view::stream_from_string, wasi_view::Wasi
+    component_events::ComponentEvent, component_imports::ComponentImports, wasi_http_view::stream_from_string, wasi_view::Wasi
 };
 
 async fn build_response(status: u16, body: &str) -> IncomingResponse {
@@ -50,10 +50,12 @@ pub async fn invoke_component(
     config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
     config.wasm_component_model(true);
     config.debug_info(true);
+    config.async_support(true);
     let engine = Engine::new(&config).unwrap();
     let mut linker = Linker::<Wasi<ComponentImports>>::new(&engine);
     linker.allow_shadowing(true);
-    wasi_http_linker::add_to_linker_sync(&mut linker).unwrap();
+    wasmtime_wasi::add_to_linker_async(&mut linker).unwrap();
+    wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker).unwrap();
     // wit::Http::add_to_linker(&mut linker, |x| &mut x.data)?;
     let stdout = MemoryOutputPipe::new(0x4000);
     let component_imports = ComponentImports {
