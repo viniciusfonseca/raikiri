@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use homedir::get_my_home;
     use http_body_util::{combinators::BoxBody, BodyExt};
@@ -56,8 +56,8 @@ pub async fn invoke_component(
     linker.allow_shadowing(true);
     wasmtime_wasi::add_to_linker_async(&mut linker).unwrap();
     wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker).unwrap();
-    // wit::Http::add_to_linker(&mut linker, |x| &mut x.data)?;
     let stdout = MemoryOutputPipe::new(0x4000);
+    let call_stack_len = call_stack.len();
     let component_imports = ComponentImports {
         call_stack,
         event_sender: event_sender.clone(),
@@ -75,31 +75,40 @@ pub async fn invoke_component(
         http_ctx: wasi_http_ctx
     };
     let mut store: Store<Wasi<ComponentImports>> = Store::new(&engine, wasi);
+    let start = Instant::now();
     let component = unsafe { Component::deserialize_file(&engine, wasm_path).unwrap() };
+    let duration = start.elapsed();
+    println!("deserialized {} in {:?}", username_component_name, duration);
     let proxy = wasmtime_wasi_http::bindings::Proxy::instantiate_async(&mut store, &component, &linker).await.unwrap();
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let out = store.data_mut().new_response_outparam(sender).unwrap();
     let req = store.data_mut().new_incoming_request(Scheme::Http, req).unwrap();
-    let timer = tokio::time::timeout(
-        // TODO: make timeout configurable
-        tokio::time::Duration::from_millis(300),
-        wasmtime_wasi::runtime::spawn(async move {
-            proxy.wasi_http_incoming_handler().call_handle(&mut store, req, out).await
-        })
-    )
-    .await;
+    let task = wasmtime_wasi::runtime::spawn(async move {
+        proxy.wasi_http_incoming_handler().call_handle(&mut store, req, out).await
+    });
+    if call_stack_len == 1 {
+        let timer = tokio::time::timeout(
+            // TODO: make timeout configurable
+            tokio::time::Duration::from_millis(300),
+            task
+        )
+        .await;
+        match timer {
+            Err(_) => {
+                return Ok(build_response(500, "EXECUTION TIMEOUT").await);
+            }
+            Ok(_) => (),
+        };
+    }
+    else {
+        task.await.unwrap();
+    }
     event_sender
         .send(ComponentEvent::Stdout {
             stdout,
             username_component_name,
         })
         .await.unwrap();
-    match timer {
-        Err(_) => {
-            return Ok(build_response(500, "EXECUTION TIMEOUT").await);
-        }
-        Ok(_) => (),
-    };
     let resp = match receiver.await {
         Ok(Ok(resp)) => {
             let (parts, body) = resp.into_parts();
@@ -107,9 +116,6 @@ pub async fn invoke_component(
             Some(Ok(hyper::Response::from_parts(parts, collected)))
         }
         Ok(Err(e)) => Some(Err(e)),
-
-        // Fall through below to the `resp.expect(...)` which will hopefully
-        // return a more specific error from `handle.await`.
         Err(_) => None,
     }.expect("wasm never called set-response-outparam");
     let v = match resp {

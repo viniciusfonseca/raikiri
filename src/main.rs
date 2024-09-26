@@ -2,17 +2,14 @@ use adapters::{
     component_events::ComponentEvent, component_invoke, component_storage, setup_app_dir::setup_app_dir
 };
 use clap::{Parser, Subcommand};
-use futures::stream;
-use http::HeaderValue;
-use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
-use hyper::body::{Bytes, Frame};
-use serde::Deserialize;
-use serde_json::{Map, Value};
+use http_body_util::BodyExt;
 // use serde_json::{Map, Value};
 use server::start_server;
+use types::InvokeRequest;
 
 mod server;
 mod adapters;
+mod types;
 
 #[derive(Debug, Parser)]
 #[command(name = "raikiri")]
@@ -70,14 +67,6 @@ enum ComponentSubcommand {
     }
 }
 
-#[derive(Deserialize)]
-struct Request {
-    username_component_name: String,
-    method: String,
-    headers: Map<String, Value>,
-    body: Value
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let username = whoami::username();
@@ -106,8 +95,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Successfully added component {username_component_name}");
                 },
                 ComponentSubcommand::Run { request } => {
-                    let request = serde_json::from_str::<Request>(&request)?;
-                    let username_component_name = request.username_component_name;
+                    let request = serde_json::from_str::<InvokeRequest>(&request)?;
+                    let username_component_name = request.username_component_name.clone();
                     let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
                     tokio::spawn(async move {
                         while let Some(message) = rx.recv().await {
@@ -117,18 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     });
-                    let mut request_builder = hyper::Request::builder()
-                        .method(request.method.as_str())
-                        .uri(format!("http://raikiri.components/{}", username_component_name));
-                    for (k, v) in request.headers {
-                        request_builder = request_builder.header(k, HeaderValue::from_str(v.as_str().unwrap())?);
-                    }
-                    let request = request_builder.body(BoxBody::new(StreamBody::new(stream::iter(
-                        serde_json::to_vec(&request.body)?.chunks(16 * 1024)
-                            .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
-                            .collect::<Vec<_>>()
-                    ))))?;
-                    let response = component_invoke::invoke_component(username_component_name.clone(), request, Vec::new(), tx).await?;
+                    let response = component_invoke::invoke_component(username_component_name.clone(), request.into(), Vec::new(), tx).await?;
                     println!("Successfully invoked {username_component_name}");
                     let resp_body = BodyExt::collect(response.resp.into_body()).await?.to_bytes().to_vec();
                     println!("Response: {}", String::from_utf8(resp_body)?);

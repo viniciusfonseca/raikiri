@@ -32,13 +32,16 @@ impl WasiHttpView for Wasi<ComponentImports> {
         request: hyper::Request<HyperOutgoingBody>,
         config: OutgoingRequestConfig,
     ) -> HttpResult<HostFutureIncomingResponse> {
-        println!("calling send_request from host: {request:?}");
         if request.uri().host().unwrap().eq("raikiri.components") {
             let username_component_name = request.uri().path().replace("/", "");
             let call_stack = self.data.call_stack.clone();
             let event_sender = self.data.event_sender.clone();
             let future_handle = wasmtime_wasi::runtime::spawn(async move {
-                let request_builder = hyper::Request::builder();
+                let mut request_builder = hyper::Request::builder()
+                    .uri(request.uri());
+                for (key, value) in request.headers() {
+                    request_builder = request_builder.header(key, value);
+                }
                 let body = request.into_body().collect().await.unwrap().to_bytes().to_vec();
                 let request = request_builder.body(BoxBody::new(StreamBody::new(stream::iter(
                     body.chunks(16 * 1024)
