@@ -30,12 +30,14 @@ async fn handle_request(request: Request<hyper::body::Incoming>, component_regis
     Ok(hyper::Response::from_parts(parts, body))
 }
 
-pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+pub async fn start_server(port: String) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = SocketAddr::from(([127, 0, 0, 1], port.parse()?));
 
     let listener = TcpListener::bind(addr).await?;
 
-    println!("registering components...");
+    println!("Raikiri server listening at port {port}");
+
+    println!("Registering components...");
 
     let component_registry = component_registry::build_registry().await?;
 

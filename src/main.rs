@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match command {
                 ServerSubcommand::Start { port } => {
                     println!("starting Raikiri server at port: {port}");
-                    start_server().await?;
+                    start_server(port).await?;
                 }
             }
         },
