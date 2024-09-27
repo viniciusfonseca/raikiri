@@ -60,7 +60,7 @@ pub async fn invoke_component(
     let stdout = MemoryOutputPipe::new(0x4000);
     let call_stack_len = call_stack.len();
     let component_imports = ComponentImports {
-        component_registry,
+        component_registry: component_registry.clone(),
         call_stack,
         event_sender: event_sender.clone(),
     };
@@ -78,10 +78,15 @@ pub async fn invoke_component(
     };
     let mut store: Store<Wasi<ComponentImports>> = Store::new(&engine, wasi);
     let start = Instant::now();
-    let component = unsafe { Component::deserialize_file(&engine, wasm_path).unwrap() };
+    let component_registry = component_registry.read().await;
+    let component = component_registry.get(&username_component_name);
+    let component = match component {
+        Some(component) => component,
+        None => unsafe { &Component::deserialize_file(&engine, wasm_path).unwrap() }
+    };
     let duration = start.elapsed();
     println!("deserialized {} in {:?}", username_component_name, duration);
-    let proxy = wasmtime_wasi_http::bindings::Proxy::instantiate_async(&mut store, &component, &linker).await.unwrap();
+    let proxy = wasmtime_wasi_http::bindings::Proxy::instantiate_async(&mut store, component, &linker).await.unwrap();
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let out = store.data_mut().new_response_outparam(sender).unwrap();
     let req = store.data_mut().new_incoming_request(Scheme::Http, req).unwrap();

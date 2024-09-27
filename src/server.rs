@@ -1,9 +1,9 @@
-use std::{collections::HashMap, convert::Infallible, net::SocketAddr, sync::{Arc, RwLock}};
+use std::{collections::HashMap, convert::Infallible, net::SocketAddr, sync::Arc};
 
 use http::{Request, Response};
 use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::{body::Bytes, server::conn::http1, service::service_fn};
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::RwLock};
 use wasmtime::component::Component;
 use wasmtime_wasi_http::io::TokioIo;
 use wasmtime_wasi_http::bindings::http::types::ErrorCode;

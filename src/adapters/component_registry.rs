@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::{Arc, RwLock}};
+use std::{collections::HashMap, sync::Arc};
 
 use homedir::get_my_home;
+use tokio::sync::RwLock;
 use wasmtime::{component::Component, Config, Engine};
 
 pub type ComponentRegistry = Arc<RwLock<HashMap<String, Component>>>;

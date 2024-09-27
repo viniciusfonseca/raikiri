@@ -1,10 +1,11 @@
-use std::{collections::HashMap, sync::{Arc, RwLock}};
+use std::{collections::HashMap, sync::Arc};
 
 use adapters::{component_events::ComponentEvent, component_invoke, component_storage, setup_app_dir::setup_app_dir};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
 // use serde_json::{Map, Value};
 use server::start_server;
+use tokio::sync::RwLock;
 use types::InvokeRequest;
 use wasmtime::component::Component;
 
