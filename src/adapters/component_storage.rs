@@ -11,7 +11,7 @@ pub async fn add_component(
     config.cache_config_load_default()?;
     config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
     config.wasm_component_model(true);
-    config.debug_info(true);
+    config.async_support(true);
     let engine = Engine::new(&config)?;
     let file_content = tokio::fs::read(file_path).await?;
     let component = Component::from_binary(&engine, &file_content).expect("error compiling wasm component");

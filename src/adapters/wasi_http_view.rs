@@ -8,7 +8,7 @@ use wasmtime_wasi_http::{
     HttpResult, WasiHttpCtx, WasiHttpView,
 };
 
-use super::{component_imports::ComponentImports, wasi_view::Wasi, component_invoke::invoke_component};
+use super::{component_imports::ComponentImports, component_invoke::invoke_component, wasi_view::Wasi};
 
 pub async fn stream_from_string(body: String) -> BoxBody<Bytes, hyper::Error> {
     BoxBody::new(StreamBody::new(stream::iter(
@@ -36,6 +36,7 @@ impl WasiHttpView for Wasi<ComponentImports> {
             let username_component_name = request.uri().path().replace("/", "");
             let call_stack = self.data.call_stack.clone();
             let event_sender = self.data.event_sender.clone();
+            let component_registry = self.data.component_registry.clone();
             let future_handle = wasmtime_wasi::runtime::spawn(async move {
                 let mut request_builder = hyper::Request::builder()
                     .uri(request.uri());
@@ -48,7 +49,7 @@ impl WasiHttpView for Wasi<ComponentImports> {
                         .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
                         .collect::<Vec<_>>()
                 )))).unwrap();
-                Ok(invoke_component(username_component_name, request, call_stack, event_sender).await)
+                Ok(invoke_component(username_component_name, request, call_stack, component_registry,  event_sender).await)
             });
             return Ok(HostFutureIncomingResponse::Pending(future_handle))
         }

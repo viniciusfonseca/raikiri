@@ -12,7 +12,7 @@ use wasmtime_wasi::{pipe::MemoryOutputPipe, WasiCtxBuilder};
 use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, types::IncomingResponse, WasiHttpCtx, WasiHttpView};
 
 use super::{
-    component_events::ComponentEvent, component_imports::ComponentImports, wasi_http_view::stream_from_string, wasi_view::Wasi
+    component_events::ComponentEvent, component_imports::ComponentImports, component_registry::ComponentRegistry, wasi_http_view::stream_from_string, wasi_view::Wasi
 };
 
 async fn build_response(status: u16, body: &str) -> IncomingResponse {
@@ -32,6 +32,7 @@ pub async fn invoke_component(
     username_component_name: String,
     req: hyper::Request<BoxBody<Bytes, hyper::Error>>,
     mut call_stack: Vec<String>,
+    component_registry: ComponentRegistry,
     event_sender: Sender<ComponentEvent>,
 ) -> Result<IncomingResponse, wasmtime_wasi_http::bindings::http::types::ErrorCode> {
     if call_stack.len() > 10 {
@@ -59,6 +60,7 @@ pub async fn invoke_component(
     let stdout = MemoryOutputPipe::new(0x4000);
     let call_stack_len = call_stack.len();
     let component_imports = ComponentImports {
+        component_registry,
         call_stack,
         event_sender: event_sender.clone(),
     };

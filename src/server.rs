@@ -8,9 +8,9 @@ use wasmtime::component::Component;
 use wasmtime_wasi_http::io::TokioIo;
 use wasmtime_wasi_http::bindings::http::types::ErrorCode;
 
-use crate::{adapters::{component_events::ComponentEvent, component_invoke}, types::InvokeRequest};
+use crate::{adapters::{component_events::ComponentEvent, component_invoke, component_registry}, types::InvokeRequest};
 
-async fn handle_request(request: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, ErrorCode>>, Infallible> {
+async fn handle_request(request: Request<hyper::body::Incoming>, component_registry: Arc<RwLock<HashMap<String, Component>>>) -> Result<Response<BoxBody<Bytes, ErrorCode>>, Infallible> {
     let invoke_request = serde_json::from_slice::<InvokeRequest>(&request.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap();
     let username_component_name = invoke_request.username_component_name.clone();
 
@@ -24,7 +24,7 @@ async fn handle_request(request: Request<hyper::body::Incoming>) -> Result<Respo
         }
     });
 
-    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), Vec::new(), tx).await.unwrap();
+    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), Vec::new(), component_registry, tx).await.unwrap();
 
     let (parts, body) = response.resp.into_parts();
     Ok(hyper::Response::from_parts(parts, body))
@@ -35,12 +35,16 @@ pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
 
     let listener = TcpListener::bind(addr).await?;
 
-    let registered_components = Arc::new(RwLock::new(HashMap::<String, Component>::new()));
+    println!("registering components...");
+
+    let component_registry = component_registry::build_registry().await?;
+
+    println!("Successfully registered components");
 
     // We start a loop to continuously accept incoming connections
     loop {
         let (stream, _) = listener.accept().await?;
-
+        let component_registry = component_registry.clone();
         // Use an adapter to access something implementing `tokio::io` traits as if they implement
         // `hyper::rt` IO traits.
         let io = TokioIo::new(stream);
@@ -50,7 +54,7 @@ pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
             // Finally, we bind the incoming connection to our `hello` service
             if let Err(err) = http1::Builder::new()
                 // `service_fn` converts our function in a `Service`
-                .serve_connection(io, service_fn(handle_request))
+                .serve_connection(io, service_fn(|req| handle_request(req, component_registry.clone())))
                 .await
             {
                 eprintln!("Error serving connection: {:?}", err);
