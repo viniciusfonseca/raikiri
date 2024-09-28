@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use homedir::get_my_home;
     use http_body_util::{combinators::BoxBody, BodyExt};
@@ -46,16 +46,6 @@ pub async fn invoke_component(
     let homedir = get_my_home().unwrap().unwrap();
     let homedir = homedir.to_str().unwrap();
     let wasm_path = format!("{homedir}/.raikiri/components/{username_component_name}.aot.wasm");
-    let mut config = Config::new();
-    config.cache_config_load_default().unwrap();
-    config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
-    config.wasm_component_model(true);
-    config.async_support(true);
-    let engine = Engine::new(&config).unwrap();
-    let mut linker = Linker::<Wasi<ComponentImports>>::new(&engine);
-    linker.allow_shadowing(true);
-    wasmtime_wasi::add_to_linker_async(&mut linker).unwrap();
-    wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker).unwrap();
     let stdout = MemoryOutputPipe::new(0x4000);
     let call_stack_len = call_stack.len();
     let component_imports = ComponentImports {
@@ -75,16 +65,25 @@ pub async fn invoke_component(
         ctx: wasi_ctx,
         http_ctx: wasi_http_ctx
     };
-    let mut store: Store<Wasi<ComponentImports>> = Store::new(&engine, wasi);
-    let start = Instant::now();
     let component_registry = component_registry.read().await;
     let component = component_registry.get(&username_component_name);
     let component = match component {
         Some(component) => component,
-        None => unsafe { &Component::deserialize_file(&engine, wasm_path).unwrap() }
+        None => {
+            let mut config = Config::new();
+            config.cache_config_load_default().unwrap();
+            config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
+            config.wasm_component_model(true);
+            config.async_support(true);
+            let engine = Engine::new(&config).unwrap();
+            unsafe { &Component::deserialize_file(&engine, wasm_path).unwrap() }
+        }
     };
-    let duration = start.elapsed();
-    println!("deserialized {} in {:?}", username_component_name, duration);
+    let mut store: Store<Wasi<ComponentImports>> = Store::new(&component.engine(), wasi);
+    let mut linker = Linker::<Wasi<ComponentImports>>::new(&component.engine());
+    linker.allow_shadowing(true);
+    wasmtime_wasi::add_to_linker_async(&mut linker).unwrap();
+    wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker).unwrap();
     let proxy = wasmtime_wasi_http::bindings::Proxy::instantiate_async(&mut store, component, &linker).await.unwrap();
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let out = store.data_mut().new_response_outparam(sender).unwrap();
