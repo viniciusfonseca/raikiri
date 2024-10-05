@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use adapters::{component_events::ComponentEvent, component_invoke, component_storage, setup_app_dir::setup_app_dir};
+use adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_storage, setup_app_dir::setup_app_dir};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
 // use serde_json::{Map, Value};
@@ -109,7 +109,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     });
                     let component_registry = Arc::new(RwLock::new(HashMap::<String, Component>::new()));
-                    let response = component_invoke::invoke_component(username_component_name.clone(), request.into(), Vec::new(), component_registry, tx).await?;
+                    let component_imports = ComponentImports {
+                        call_stack: Vec::new(),
+                        component_registry,
+                        event_sender: tx
+                    };
+                    let response = component_invoke::invoke_component(username_component_name.clone(), request.into(), component_imports).await?;
                     println!("Successfully invoked {username_component_name}");
                     let resp_body = BodyExt::collect(response.resp.into_body()).await?.to_bytes().to_vec();
                     println!("Response: {}", String::from_utf8(resp_body)?);

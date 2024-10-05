@@ -6,3 +6,13 @@ pub struct ComponentImports {
     pub event_sender: Sender<ComponentEvent>,
     pub component_registry: ComponentRegistry
 }
+
+impl Clone for ComponentImports {
+    fn clone(&self) -> Self {
+        Self {
+            call_stack: self.call_stack.clone(),
+            event_sender: self.event_sender.clone(),
+            component_registry: self.component_registry.clone()
+        }
+    }
+}

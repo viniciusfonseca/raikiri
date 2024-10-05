@@ -3,7 +3,7 @@ use wasmtime_wasi_http::WasiHttpCtx;
 
 use super::component_imports::ComponentImports;
 
-pub struct Wasi<T: Send> {
+pub struct Wasi<T: Send + Clone> {
     pub data: T,
     pub table: ResourceTable,
     pub ctx: WasiCtx,

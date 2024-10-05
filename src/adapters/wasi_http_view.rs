@@ -34,9 +34,7 @@ impl WasiHttpView for Wasi<ComponentImports> {
     ) -> HttpResult<HostFutureIncomingResponse> {
         if request.uri().host().unwrap().eq("raikiri.components") {
             let username_component_name = request.uri().path().replace("/", "");
-            let call_stack = self.data.call_stack.clone();
-            let event_sender = self.data.event_sender.clone();
-            let component_registry = self.data.component_registry.clone();
+            let data = self.data.clone();
             let future_handle = wasmtime_wasi::runtime::spawn(async move {
                 let mut request_builder = hyper::Request::builder()
                     .uri(request.uri());
@@ -49,7 +47,7 @@ impl WasiHttpView for Wasi<ComponentImports> {
                         .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
                         .collect::<Vec<_>>()
                 )))).unwrap();
-                Ok(invoke_component(username_component_name, request, call_stack, component_registry,  event_sender).await)
+                Ok(invoke_component(username_component_name, request, data).await)
             });
             return Ok(HostFutureIncomingResponse::Pending(future_handle))
         }
