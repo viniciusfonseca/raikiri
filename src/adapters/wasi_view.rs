@@ -1,5 +1,4 @@
-use wasmtime::Memory;
-use wasmtime_wasi::{pipe::MemoryOutputPipe, ResourceTable, StdoutStream, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{pipe::MemoryOutputPipe, ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 use wasmtime_wasi_http::WasiHttpCtx;
 
 use super::context::RaikiriContext;

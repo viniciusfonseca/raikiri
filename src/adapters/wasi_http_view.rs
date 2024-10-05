@@ -8,7 +8,7 @@ use wasmtime_wasi_http::{
     HttpResult, WasiHttpCtx, WasiHttpView,
 };
 
-use super::{component_imports::ComponentImports, component_invoke::invoke_component, context::RaikiriContext, wasi_view::Wasi};
+use super::{component_invoke::invoke_component, context::RaikiriContext, wasi_view::Wasi};
 
 pub async fn stream_from_string(body: String) -> BoxBody<Bytes, hyper::Error> {
     BoxBody::new(StreamBody::new(stream::iter(

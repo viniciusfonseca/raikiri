@@ -4,14 +4,13 @@ use homedir::get_my_home;
     use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::body::Bytes;
 use wasmtime::{
-    component::{Component, Linker, ResourceTable},
+    component::{Component, Linker},
     Config, Engine, Store,
 };
-use wasmtime_wasi::{pipe::MemoryOutputPipe, WasiCtxBuilder, WasiView};
-use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, types::IncomingResponse, WasiHttpCtx, WasiHttpView};
+use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, types::IncomingResponse, WasiHttpView};
 
 use super::{
-    component_events::ComponentEvent, component_imports::ComponentImports, context::{RaikiriContext, RaikiriWasi}, wasi_http_view::stream_from_string, wasi_view::Wasi
+    component_events::ComponentEvent, context::RaikiriContext, wasi_http_view::stream_from_string, wasi_view::Wasi
 };
 
 async fn build_response(status: u16, body: &str) -> IncomingResponse {
