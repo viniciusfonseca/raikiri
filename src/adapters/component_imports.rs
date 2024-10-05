@@ -1,5 +1,5 @@
 use tokio::sync::mpsc::Sender;
-use super::{component_events::ComponentEvent, component_registry::ComponentRegistry};
+use super::{component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext};
 
 pub struct ComponentImports {
     pub call_stack: Vec<String>,
@@ -14,5 +14,19 @@ impl Clone for ComponentImports {
             event_sender: self.event_sender.clone(),
             component_registry: self.component_registry.clone()
         }
+    }
+}
+
+impl RaikiriContext for ComponentImports {
+    fn call_stack(&self) -> Vec<String> {
+        todo!()
+    }
+
+    fn event_sender(&self) -> Sender<ComponentEvent> {
+        todo!()
+    }
+
+    fn component_registry(&self) -> ComponentRegistry {
+        todo!()
     }
 }

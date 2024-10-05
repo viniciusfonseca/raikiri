@@ -8,7 +8,7 @@ use wasmtime_wasi_http::{
     HttpResult, WasiHttpCtx, WasiHttpView,
 };
 
-use super::{component_imports::ComponentImports, component_invoke::invoke_component, wasi_view::Wasi};
+use super::{component_imports::ComponentImports, component_invoke::invoke_component, context::RaikiriContext, wasi_view::Wasi};
 
 pub async fn stream_from_string(body: String) -> BoxBody<Bytes, hyper::Error> {
     BoxBody::new(StreamBody::new(stream::iter(
@@ -18,7 +18,7 @@ pub async fn stream_from_string(body: String) -> BoxBody<Bytes, hyper::Error> {
     )))
 }
 
-impl WasiHttpView for Wasi<ComponentImports> {
+impl <T> WasiHttpView for Wasi<T> where T: Send + Clone + RaikiriContext + 'static {
     fn ctx(&mut self) -> &mut WasiHttpCtx {
         &mut self.http_ctx
     }
@@ -47,7 +47,7 @@ impl WasiHttpView for Wasi<ComponentImports> {
                         .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
                         .collect::<Vec<_>>()
                 )))).unwrap();
-                Ok(invoke_component(username_component_name, request, data).await)
+                Ok(invoke_component(username_component_name, request, Wasi::new(data)).await)
             });
             return Ok(HostFutureIncomingResponse::Pending(future_handle))
         }

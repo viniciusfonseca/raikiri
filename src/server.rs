@@ -8,7 +8,7 @@ use wasmtime::component::Component;
 use wasmtime_wasi_http::io::TokioIo;
 use wasmtime_wasi_http::bindings::http::types::ErrorCode;
 
-use crate::{adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_registry}, types::InvokeRequest};
+use crate::{adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_registry, wasi_view::Wasi}, types::InvokeRequest};
 
 async fn handle_request(request: Request<hyper::body::Incoming>, component_registry: Arc<RwLock<HashMap<String, Component>>>) -> Result<Response<BoxBody<Bytes, ErrorCode>>, Infallible> {
     let invoke_request = serde_json::from_slice::<InvokeRequest>(&request.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap();
@@ -28,7 +28,7 @@ async fn handle_request(request: Request<hyper::body::Incoming>, component_regis
         component_registry,
         event_sender: tx
     };
-    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), component_imports).await.unwrap();
+    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), Wasi::new(component_imports)).await.unwrap();
 
     let (parts, body) = response.resp.into_parts();
     Ok(hyper::Response::from_parts(parts, body))
