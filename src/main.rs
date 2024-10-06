@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_storage, setup_app_dir::setup_app_dir, wasi_view::Wasi};
+use adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_storage, setup_app_dir::setup_app_dir, wasi_view::Wasi, cache::new_empty_cache};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
 // use serde_json::{Map, Value};
@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     });
-                    let component_registry = Arc::new(RwLock::new(HashMap::<String, Component>::new()));
+                    let component_registry = new_empty_cache();
                     let component_imports = ComponentImports {
                         call_stack: Vec::new(),
                         component_registry,

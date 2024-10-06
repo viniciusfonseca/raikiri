@@ -7,6 +7,15 @@ pub struct Cache<K, V>
     pub hashes: Arc<RwLock<HashMap<K, Arc<RwLock<V>>>>>,
 }
 
+impl<K, V> Clone for Cache<K, V>
+    where K : std::cmp::Eq + std::hash::Hash {
+    fn clone(&self) -> Self {
+        Self {
+            hashes: self.hashes.clone()
+        }
+    }
+}
+
 impl<K, V> Cache<K, V>
     where K : std::cmp::Eq + std::hash::Hash {
     pub async fn get_entry_by_key<F>(&self, key: K, build_default_if_new: F) -> Arc<RwLock<V>>
