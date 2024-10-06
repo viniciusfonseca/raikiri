@@ -1,13 +1,12 @@
-use std::{collections::HashMap, sync::Arc};
-
 use homedir::get_my_home;
-use tokio::sync::RwLock;
 use wasmtime::{component::Component, Config, Engine};
 
-pub type ComponentRegistry = Arc<RwLock<HashMap<String, Component>>>;
+use crate::adapters::cache::{Cache, new_empty_cache};
+
+pub type ComponentRegistry = Cache<String, Component>;
 
 pub async fn build_registry() -> Result<ComponentRegistry, Box<dyn std::error::Error>> {
-    let mut component_registry = HashMap::<String, Component>::new();
+    let component_registry = new_empty_cache();
 
     let homedir = get_my_home()?.unwrap();
     let homedir = homedir.to_str().unwrap();
@@ -20,11 +19,14 @@ pub async fn build_registry() -> Result<ComponentRegistry, Box<dyn std::error::E
     let engine = Engine::new(&config)?;
 
     while let Some(file) = entries.next_entry().await? {
-        let component = unsafe { Component::deserialize_file(&engine, file.path()).unwrap() };
+
         let filename = file.path().file_name().unwrap().to_str().unwrap().to_string().replace(".aot.wasm", "");
-        component_registry.insert(filename.clone(), component);
+        component_registry.get_entry_by_key(filename.clone(), || {
+            let component = unsafe { Component::deserialize_file(&engine, file.path()).unwrap() };
+            component
+        }).await;
         println!("successfully registered {filename}");
     }
 
-    Ok(Arc::new(RwLock::new(component_registry)))
+    Ok(component_registry)
 }

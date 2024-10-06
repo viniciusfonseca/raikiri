@@ -49,20 +49,18 @@ pub async fn invoke_component<T>(
     let wasm_path = format!("{homedir}/.raikiri/components/{username_component_name}.aot.wasm");
     let call_stack_len = call_stack.len();
     let component_registry = wasi.data.component_registry();
-    let component_registry = component_registry.read().await;
-    let component = component_registry.get(&username_component_name);
-    let component = match component {
-        Some(component) => component,
-        None => {
-            let mut config = Config::new();
-            config.cache_config_load_default().unwrap();
-            config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
-            config.wasm_component_model(true);
-            config.async_support(true);
-            let engine = Engine::new(&config).unwrap();
-            unsafe { &Component::deserialize_file(&engine, wasm_path).unwrap() }
-        }
-    };
+
+    let component_entry = component_registry.get_entry_by_key(username_component_name.clone(), || {
+        let mut config = Config::new();
+        config.cache_config_load_default().unwrap();
+        config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
+        config.wasm_component_model(true);
+        config.async_support(true);
+        let engine = Engine::new(&config).unwrap();
+        unsafe { Component::deserialize_file(&engine, wasm_path.clone()).unwrap() }
+    }).await;
+    let component = component_entry.read().await;
+
     let data = wasi.data.clone();
     let stdout = wasi.stdout.clone();
     let mut store: Store<Wasi<T>> = Store::new(&component.engine(), wasi);
@@ -70,7 +68,7 @@ pub async fn invoke_component<T>(
     linker.allow_shadowing(true);
     wasmtime_wasi::add_to_linker_async(&mut linker).unwrap();
     wasmtime_wasi_http::add_only_http_to_linker_async(&mut linker).unwrap();
-    let proxy = wasmtime_wasi_http::bindings::Proxy::instantiate_async(&mut store, component, &linker).await.unwrap();
+    let proxy = wasmtime_wasi_http::bindings::Proxy::instantiate_async(&mut store, &component, &linker).await.unwrap();
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let out = store.data_mut().new_response_outparam(sender).unwrap();
     let req = store.data_mut().new_incoming_request(Scheme::Http, req).unwrap();
