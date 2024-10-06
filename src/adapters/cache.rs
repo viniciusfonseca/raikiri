@@ -33,8 +33,8 @@ impl<K, V> Cache<K, V>
 
             None => {
                 drop(hs);
-                let mut write_hs = self.hashes.write().await;
                 let default_if_new = Arc::new(RwLock::new(build_default_if_new()));
+                let mut write_hs = self.hashes.write().await;
                 (*write_hs).insert(key, default_if_new.clone());
                 drop(write_hs);
                 return default_if_new;
@@ -55,8 +55,8 @@ impl<K, V> Cache<K, V>
 
             None => {
                 drop(hs);
-                let mut write_hs = self.hashes.write().await;
                 let default_if_new = Arc::new(RwLock::new(build_default_if_new_async.await));
+                let mut write_hs = self.hashes.write().await;
                 (*write_hs).insert(key, default_if_new.clone());
                 drop(write_hs);
                 return default_if_new;
