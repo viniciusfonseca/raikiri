@@ -1,16 +1,18 @@
-use std::{collections::HashMap, convert::Infallible, net::SocketAddr, sync::Arc};
+use std::{convert::Infallible, net::SocketAddr};
+
+use crate::adapters::cache::Cache;
 
 use http::{Request, Response};
 use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::{body::Bytes, server::conn::http1, service::service_fn};
-use tokio::{net::TcpListener, sync::RwLock};
+use tokio::net::TcpListener;
 use wasmtime::component::Component;
 use wasmtime_wasi_http::io::TokioIo;
 use wasmtime_wasi_http::bindings::http::types::ErrorCode;
 
 use crate::{adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_registry, wasi_view::Wasi}, types::InvokeRequest};
 
-async fn handle_request(request: Request<hyper::body::Incoming>, component_registry: Arc<RwLock<HashMap<String, Component>>>) -> Result<Response<BoxBody<Bytes, ErrorCode>>, Infallible> {
+async fn handle_request(request: Request<hyper::body::Incoming>, component_registry: Cache<String, Component>) -> Result<Response<BoxBody<Bytes, ErrorCode>>, Infallible> {
     let invoke_request = serde_json::from_slice::<InvokeRequest>(&request.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap();
     let username_component_name = invoke_request.username_component_name.clone();
 
