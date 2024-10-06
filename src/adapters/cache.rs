@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use tokio::sync::RwLock;
 use std::sync::Arc;
 
+#[allow(dead_code)]
 pub struct Cache<K, V>
     where K : std::cmp::Eq + std::hash::Hash {
     pub hashes: Arc<RwLock<HashMap<K, Arc<RwLock<V>>>>>,
@@ -9,6 +10,7 @@ pub struct Cache<K, V>
 
 impl<K, V> Clone for Cache<K, V>
     where K : std::cmp::Eq + std::hash::Hash {
+    #[allow(dead_code)]
     fn clone(&self) -> Self {
         Self {
             hashes: self.hashes.clone()
@@ -18,6 +20,7 @@ impl<K, V> Clone for Cache<K, V>
 
 impl<K, V> Cache<K, V>
     where K : std::cmp::Eq + std::hash::Hash {
+    #[allow(dead_code)]
     pub async fn get_entry_by_key<F>(&self, key: K, build_default_if_new: F) -> Arc<RwLock<V>>
         where F: Fn() -> V {
         let hs = self.hashes.read().await;
@@ -39,6 +42,7 @@ impl<K, V> Cache<K, V>
         }
     }
 
+    #[allow(dead_code)]
     pub async fn get_entry_by_key_async_build<F>(&self, key: K, build_default_if_new_async: F) -> Arc<RwLock<V>>
         where F: std::future::Future<Output = V> {
         let hs = self.hashes.read().await;
@@ -64,6 +68,7 @@ impl<K, V> Cache<K, V>
     // the entry neither the inside value are disposed, and the dispose only happens when the last thread disposes (Arc behavior).
 
     // Still, default_if_new for the same key after this call inserts a pointer to a different reference at the parent HashMap
+    #[allow(dead_code)]
     pub async fn destroy_gracefully_entry_by_key(&self, key: K) {
         let mut write_hs = self.hashes.write().await;
         let found = write_hs.get(&key);
@@ -79,6 +84,7 @@ impl<K, V> Cache<K, V>
     }
 }
 
+#[allow(dead_code)]
 pub fn new_empty_cache<K, V>() -> Cache<K, V>
     where K : std::cmp::Eq + std::hash::Hash {
     Cache {
