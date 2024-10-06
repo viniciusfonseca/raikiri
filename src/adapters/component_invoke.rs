@@ -34,7 +34,8 @@ pub async fn invoke_component<T>(
     where T: Send + Clone + RaikiriContext + 'static,
 {
 
-    let mut call_stack = wasi.data.call_stack();
+    let data = wasi.data.clone();
+    let mut call_stack = data.call_stack().clone();
 
     if call_stack.len() > 10 {
         return Ok(build_response(400, "CALL STACK LIMIT SIZE REACHED").await);
@@ -48,7 +49,7 @@ pub async fn invoke_component<T>(
     let homedir = homedir.to_str().unwrap();
     let wasm_path = format!("{homedir}/.raikiri/components/{username_component_name}.aot.wasm");
     let call_stack_len = call_stack.len();
-    let component_registry = wasi.data.component_registry();
+    let component_registry = data.component_registry();
     let component_registry = component_registry.read().await;
     let component = component_registry.get(&username_component_name);
     let component = match component {
@@ -63,7 +64,6 @@ pub async fn invoke_component<T>(
             unsafe { &Component::deserialize_file(&engine, wasm_path).unwrap() }
         }
     };
-    let data = wasi.data.clone();
     let stdout = wasi.stdout.clone();
     let mut store: Store<Wasi<T>> = Store::new(&component.engine(), wasi);
     let mut linker = Linker::<Wasi<T>>::new(&component.engine());

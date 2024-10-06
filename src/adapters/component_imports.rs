@@ -18,15 +18,15 @@ impl Clone for ComponentImports {
 }
 
 impl RaikiriContext for ComponentImports {
-    fn call_stack(&self) -> Vec<String> {
-        todo!()
+    fn call_stack(&self) -> &Vec<String> {
+        &self.call_stack
     }
 
-    fn event_sender(&self) -> Sender<ComponentEvent> {
-        todo!()
+    fn event_sender(&self) -> &Sender<ComponentEvent> {
+        &self.event_sender
     }
 
-    fn component_registry(&self) -> ComponentRegistry {
-        todo!()
+    fn component_registry(&self) -> &ComponentRegistry {
+        &self.component_registry
     }
 }
