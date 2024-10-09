@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use homedir::get_my_home;
     use http_body_util::{combinators::BoxBody, BodyExt};
@@ -33,15 +33,19 @@ pub async fn invoke_component<T>(
 ) -> Result<IncomingResponse, wasmtime_wasi_http::bindings::http::types::ErrorCode>
     where T: Send + Clone + RaikiriContext + 'static,
 {
-
+    let start = Instant::now();
     let data = wasi.data.clone();
     let mut call_stack = data.call_stack().clone();
 
     if call_stack.len() > 10 {
+        data.event_sender()
+            .send(ComponentEvent::Execution {
+                stdout: None,
+                username_component_name,
+                duration: start.elapsed().as_millis()
+            })
+            .await.unwrap();
         return Ok(build_response(400, "CALL STACK LIMIT SIZE REACHED").await);
-    }
-    if call_stack.contains(&username_component_name) {
-        return Ok(build_response(400, "CYCLIC CALL FORBIDDEN").await);
     }
     call_stack.push(username_component_name.clone());
 
@@ -92,12 +96,7 @@ pub async fn invoke_component<T>(
     else {
         task.await.unwrap();
     }
-    data.event_sender()
-        .send(ComponentEvent::Stdout {
-            stdout,
-            username_component_name,
-        })
-        .await.unwrap();
+
     let resp = match receiver.await {
         Ok(Ok(resp)) => {
             let (parts, body) = resp.into_parts();
@@ -107,6 +106,13 @@ pub async fn invoke_component<T>(
         Ok(Err(e)) => Some(Err(e)),
         Err(_) => None,
     }.expect("wasm never called set-response-outparam");
+    data.event_sender()
+        .send(ComponentEvent::Execution {
+            stdout: Some(stdout),
+            username_component_name,
+            duration: start.elapsed().as_millis()
+        })
+        .await.unwrap();
     let v = match resp {
         Err(e) => {
             eprintln!("{e}");

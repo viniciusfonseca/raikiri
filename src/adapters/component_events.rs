@@ -1,8 +1,9 @@
 use wasmtime_wasi::pipe::MemoryOutputPipe;
 
 pub enum ComponentEvent {
-    Stdout {
+    Execution {
         username_component_name: String,
-        stdout: MemoryOutputPipe
+        stdout: Option<MemoryOutputPipe>,
+        duration: u128
     }
 }

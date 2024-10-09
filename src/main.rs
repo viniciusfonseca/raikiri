@@ -99,8 +99,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     tokio::spawn(async move {
                         while let Some(message) = rx.recv().await {
                             match message {
-                                ComponentEvent::Stdout { stdout, username_component_name } =>
-                                    println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap()),
+                                ComponentEvent::Execution { stdout, username_component_name, duration } => {
+                                    println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.unwrap().contents().to_vec()).unwrap());
+                                    println!("Finished {username_component_name} in {duration}ms");
+                                }
                             }
                         }
                     });
