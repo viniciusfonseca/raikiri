@@ -100,7 +100,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         while let Some(message) = rx.recv().await {
                             match message {
                                 ComponentEvent::Execution { stdout, username_component_name, duration } => {
-                                    println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.unwrap().contents().to_vec()).unwrap());
+                                    if let Some(stdout) = stdout {
+                                        println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap());
+                                    }
                                     println!("Finished {username_component_name} in {duration}ms");
                                 }
                             }
