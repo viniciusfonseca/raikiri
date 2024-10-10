@@ -18,12 +18,6 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-
-    #[command(arg_required_else_help = true)]
-    Wasm {
-        #[command(subcommand)]
-        command: WasmSubcommand
-    },
     #[command(arg_required_else_help = true)]
     Server {
         #[command(subcommand)]
@@ -33,13 +27,6 @@ enum Commands {
     Component {
         #[command(subcommand)]
         command: ComponentSubcommand
-    }
-}
-
-#[derive(Debug, Clone, Subcommand)]
-enum WasmSubcommand {
-    Run {
-        path: String
     }
 }
 
@@ -70,13 +57,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let username = whoami::username();
     setup_app_dir()?;
     match Cli::parse().command {
-        Commands::Wasm { command } => {
-            match command {
-                WasmSubcommand::Run { path } => {
-                    println!("running wasm: {path}")
-                }
-            }
-        },
         Commands::Server { command } => {
             match command {
                 ServerSubcommand::Start { port } => {
