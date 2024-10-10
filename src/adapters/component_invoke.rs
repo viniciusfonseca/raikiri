@@ -42,7 +42,8 @@ pub async fn invoke_component<T>(
             .send(ComponentEvent::Execution {
                 stdout: None,
                 username_component_name,
-                duration: start.elapsed().as_millis()
+                duration: start.elapsed().as_millis(),
+                status: 400
             })
             .await.unwrap();
         return Ok(build_response(400, "CALL STACK LIMIT SIZE REACHED").await);
@@ -106,21 +107,25 @@ pub async fn invoke_component<T>(
         Ok(Err(e)) => Some(Err(e)),
         Err(_) => None,
     }.expect("wasm never called set-response-outparam");
+    let status;
+    let v = match resp {
+        Err(e) => {
+            eprintln!("{e}");
+            status = 500;
+            Ok(build_response(500, &format!("RUNTIME ERROR: {}", e)).await)
+        },
+        Ok(v) => {
+            status = v.status().as_u16();
+            Ok(build_response(v.status().as_u16(), std::str::from_utf8(&v.into_body().to_bytes().to_vec()).unwrap()).await)
+        }
+    };
     data.event_sender()
         .send(ComponentEvent::Execution {
             stdout: Some(stdout),
             username_component_name,
-            duration: start.elapsed().as_millis()
+            duration: start.elapsed().as_millis(),
+            status
         })
         .await.unwrap();
-    let v = match resp {
-        Err(e) => {
-            eprintln!("{e}");
-            Ok(build_response(500, &format!("RUNTIME ERROR: {}", e)).await)
-        },
-        Ok(v) => {
-            Ok(build_response(v.status().as_u16(), std::str::from_utf8(&v.into_body().to_bytes().to_vec()).unwrap()).await)
-        }
-    };
     v
 }

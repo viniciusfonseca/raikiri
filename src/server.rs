@@ -20,7 +20,7 @@ async fn handle_request(request: Request<hyper::body::Incoming>, component_regis
     tokio::spawn(async move {
         while let Some(message) = rx.recv().await {
             match message {
-                ComponentEvent::Execution { stdout, username_component_name, duration } => {
+                ComponentEvent::Execution { stdout, username_component_name, duration, status: _ } => {
                     if let Some(stdout) = stdout {
                         println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap());
                     }
