@@ -81,9 +81,11 @@ pub async fn invoke_component<T>(
         proxy.wasi_http_incoming_handler().call_handle(&mut store, req, out).await
     });
     if call_stack_len == 1 {
+        let timeout = std::env::var("RAIKIRI_TIMEOUT").unwrap_or_else(|_| "300".to_string())
+            .parse::<u64>().unwrap_or_else(|_| 300);
         let timer = tokio::time::timeout(
             // TODO: make timeout configurable
-            tokio::time::Duration::from_millis(300),
+            tokio::time::Duration::from_millis(timeout),
             task
         )
         .await;
