@@ -1,7 +1,6 @@
-use adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_storage, setup_app_dir::setup_app_dir, wasi_view::Wasi, cache::new_empty_cache};
+use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, setup_app_dir::setup_app_dir, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
-// use serde_json::{Map, Value};
 use server::start_server;
 use types::InvokeRequest;
 
@@ -78,14 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
                     tokio::spawn(async move {
                         while let Some(message) = rx.recv().await {
-                            match message {
-                                ComponentEvent::Execution { stdout, username_component_name, duration, status: _ } => {
-                                    if let Some(stdout) = stdout {
-                                        println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap());
-                                    }
-                                    println!("Finished {username_component_name} in {duration}ms");
-                                }
-                            }
+                            default_event_handler(message)
                         }
                     });
                     let component_registry = new_empty_cache();

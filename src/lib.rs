@@ -6,3 +6,4 @@ pub use adapters::setup_app_dir::setup_app_dir;
 pub use adapters::component_registry::build_registry;
 pub use adapters::component_events::ComponentEvent;
 pub use adapters::component_imports::ComponentImports;
+pub use adapters::component_events::default_event_handler;
