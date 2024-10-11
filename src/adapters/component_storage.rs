@@ -7,8 +7,7 @@ pub async fn add_component(
     component_name: String,
     file_path: String,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let mut config = Config::new();
-    config.cache_config_load_default()?;
+    let mut config: Config = Config::new();
     config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
     config.wasm_component_model(true);
     config.async_support(true);
