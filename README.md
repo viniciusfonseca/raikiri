@@ -3,18 +3,12 @@
 First install Raikiri:
 
 ```sh
-cargo install raikiri
-```
-
-Run a WASM component:
-
-```sh
-raikiri wasm run ./helloworld.wasm
+cargo install --path .
 ```
 
 ## Server mode
 
-Raikiri also includes a local server mode.
+Raikiri includes a local server mode.
 
 To start the server mode:
 
@@ -37,5 +31,5 @@ raikiri comopnent add --name helloworld --path ./helloworld.wasm
 Run the component:
 
 ```sh
-raikiri component run --name helloworld --params '{"param0": "foo", "param1": "bar"}'
+raikiri component run --request '{"username_component_name": "<user>.helloworld","method": "GET","headers": {},"body": ""}''
 ```
