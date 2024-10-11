@@ -16,12 +16,6 @@ To start the server mode:
 raikiri server start --port 3000
 ```
 
-Create a `~/.raikiriconf` file with the following content to use the local server with Raikiri CLI: 
-
-```
-URL=http://localhost:3000
-```
-
 Create a component:
 
 ```sh
