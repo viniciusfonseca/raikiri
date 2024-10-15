@@ -1,5 +1,10 @@
+use futures::stream;
+use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
+use hyper::body::{Bytes, Frame};
 use tokio::sync::mpsc::Sender;
-use super::{component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext};
+use wasmtime_wasi_http::types::HostFutureIncomingResponse;
+
+use super::{component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext, wasi_view::Wasi};
 
 pub struct ComponentImports {
     pub call_stack: Vec<String>,
@@ -28,5 +33,30 @@ impl RaikiriContext for ComponentImports {
 
     fn component_registry(&self) -> &ComponentRegistry {
         &self.component_registry
+    }
+    
+    fn handle_http(&self, request: hyper::Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
+        config: wasmtime_wasi_http::types::OutgoingRequestConfig,
+    ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse> {
+        if request.uri().host().unwrap().eq("raikiri.components") {
+            let data = self.clone();
+            let username_component_name = request.uri().path().replace("/", "");
+            let future_handle = wasmtime_wasi::runtime::spawn(async move {
+                let mut request_builder = hyper::Request::builder()
+                    .uri(request.uri());
+                for (key, value) in request.headers() {
+                    request_builder = request_builder.header(key, value);
+                }
+                let body = request.into_body().collect().await.unwrap().to_bytes().to_vec();
+                let request = request_builder.body(BoxBody::new(StreamBody::new(stream::iter(
+                    body.chunks(16 * 1024)
+                        .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
+                        .collect::<Vec<_>>()
+                )))).unwrap();
+                Ok(super::component_invoke::invoke_component(username_component_name, request, Wasi::new(data)).await)
+            });
+            return Ok(HostFutureIncomingResponse::Pending(future_handle))
+        }
+        Ok(wasmtime_wasi_http::types::default_send_request(request, config))
     }
 }
