@@ -10,3 +10,4 @@ pub use adapters::component_events::default_event_handler;
 pub use adapters::cache::new_empty_cache;
 pub use adapters::context::RaikiriContext;
 pub use adapters::wasi_view::Wasi;
+pub use adapters::component_registry::ComponentRegistry;
