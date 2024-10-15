@@ -13,7 +13,7 @@ use super::{
     component_events::ComponentEvent, context::RaikiriContext, wasi_http_view::stream_from_string, wasi_view::Wasi
 };
 
-async fn build_response(status: u16, body: &str) -> IncomingResponse {
+pub async fn build_response(status: u16, body: &str) -> IncomingResponse {
     let resp = http::Response::builder()
         .status(status)
         .body(stream_from_string(body.to_string()).await)
