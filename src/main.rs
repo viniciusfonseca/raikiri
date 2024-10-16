@@ -45,6 +45,10 @@ enum ComponentSubcommand {
         #[arg(short, long)]
         path: String
     },
+    Remove {
+        #[arg(short, long)]
+        name: String,
+    },
     Run {
         #[arg(short, long)]
         request: String,
@@ -90,6 +94,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Successfully invoked {username_component_name}");
                     let resp_body = BodyExt::collect(response.resp.into_body()).await?.to_bytes().to_vec();
                     println!("Response: {}", String::from_utf8(resp_body)?);
+                },
+                ComponentSubcommand::Remove { name } => {
+                    let username_component_name = format!("{username}.{name}");
+                    component_storage::remove_component(username, name).await?;
+                    println!("Successfully removed component {username_component_name}");
                 }
             }
         }
