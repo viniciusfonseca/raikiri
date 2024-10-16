@@ -19,7 +19,7 @@ raikiri server start --port 3000
 Create a component:
 
 ```sh
-raikiri comopnent add --name helloworld --path ./helloworld.wasm
+raikiri component add --name helloworld --path ./helloworld.wasm
 ```
 
 Run the component:
