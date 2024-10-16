@@ -23,3 +23,16 @@ pub async fn add_component(
     fs::write(&aot_component_path, bytes).await?;
     Ok(aot_component_path)
 }
+
+pub async fn remove_component(
+    username: String,
+    component_name: String
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let homedir = get_my_home()?.unwrap();
+    let homedir = homedir.to_str().unwrap();
+    let aot_component_path = format!("{homedir}/.raikiri/components/{username}.{component_name}.aot.wasm");
+    fs::remove_file(aot_component_path).await?;
+
+    Ok(())
+}
