@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0.86"
 clap = { version = "4.5.7", features = ["derive"] }
 clap_derive = { version = "4.5.5" }
+chrono = "0.4.33"
 futures = "0.3.30"
 homedir = "0.2.1"
 http = "1.1.0"

@@ -34,6 +34,7 @@ pub async fn invoke_component<T>(
     where T: Send + Clone + RaikiriContext + 'static,
 {
     let start = Instant::now();
+    let utc_start = chrono::Utc::now();
     let data = wasi.data.clone();
     let mut call_stack = data.call_stack().clone();
 
@@ -42,6 +43,7 @@ pub async fn invoke_component<T>(
             .send(ComponentEvent::Execution {
                 stdout: None,
                 username_component_name,
+                start: utc_start,
                 duration: start.elapsed().as_millis(),
                 status: 400
             })
@@ -77,6 +79,7 @@ pub async fn invoke_component<T>(
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let out = store.data_mut().new_response_outparam(sender).unwrap();
     let req = store.data_mut().new_incoming_request(Scheme::Http, req).unwrap();
+
     let task = wasmtime_wasi::runtime::spawn(async move {
         proxy.wasi_http_incoming_handler().call_handle(&mut store, req, out).await
     });
@@ -125,6 +128,7 @@ pub async fn invoke_component<T>(
         .send(ComponentEvent::Execution {
             stdout: Some(stdout),
             username_component_name,
+            start: utc_start,
             duration: start.elapsed().as_millis(),
             status
         })
