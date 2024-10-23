@@ -17,7 +17,8 @@ pub fn default_event_handler(message: ComponentEvent) {
             if let Some(stdout) = stdout {
                 println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap());
             }
-            println!("Started {username_component_name} at {start:#?} and finished in {duration}ms. Status code: {status}");
+            let start_text = start.to_rfc3339();
+            println!("Started {username_component_name} at {start_text} and finished in {duration}ms. Status code: {status}");
         }
     }
 }
