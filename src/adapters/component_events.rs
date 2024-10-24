@@ -6,7 +6,7 @@ pub enum ComponentEvent {
         username_component_name: String,
         stdout: Option<MemoryOutputPipe>,
         start: DateTime<chrono::Utc>,
-        duration: u128,
+        duration: u64,
         status: u16
     }
 }
