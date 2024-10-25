@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use homedir::get_my_home;
     use http_body_util::{combinators::BoxBody, BodyExt};
@@ -33,7 +33,7 @@ pub async fn invoke_component<T>(
 ) -> Result<IncomingResponse, wasmtime_wasi_http::bindings::http::types::ErrorCode>
     where T: Send + Clone + RaikiriContext + 'static,
 {
-    let start = Instant::now();
+    let start = chrono::Utc::now();
     let data = wasi.data.clone();
     let mut call_stack = data.call_stack().clone();
 
@@ -42,7 +42,8 @@ pub async fn invoke_component<T>(
             .send(ComponentEvent::Execution {
                 stdout: None,
                 username_component_name,
-                duration: start.elapsed().as_millis(),
+                start,
+                duration: chrono::Utc::now().signed_duration_since(start).num_milliseconds().unsigned_abs(),
                 status: 400
             })
             .await.unwrap();
@@ -77,6 +78,7 @@ pub async fn invoke_component<T>(
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let out = store.data_mut().new_response_outparam(sender).unwrap();
     let req = store.data_mut().new_incoming_request(Scheme::Http, req).unwrap();
+
     let task = wasmtime_wasi::runtime::spawn(async move {
         proxy.wasi_http_incoming_handler().call_handle(&mut store, req, out).await
     });
@@ -125,7 +127,8 @@ pub async fn invoke_component<T>(
         .send(ComponentEvent::Execution {
             stdout: Some(stdout),
             username_component_name,
-            duration: start.elapsed().as_millis(),
+            start,
+            duration: chrono::Utc::now().signed_duration_since(start).num_milliseconds().unsigned_abs(),
             status
         })
         .await.unwrap();
