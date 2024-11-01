@@ -9,6 +9,7 @@ pub use adapters::component_invoke::invoke_component;
 pub use adapters::component_registry::build_registry;
 pub use adapters::component_registry::ComponentRegistry;
 pub use adapters::component_storage::add_component;
+pub use adapters::component_storage::add_component_bytes;
 pub use adapters::component_storage::remove_component;
 pub use adapters::context::RaikiriContext;
 pub use adapters::setup_app_dir::setup_app_dir;
