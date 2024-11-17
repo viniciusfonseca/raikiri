@@ -43,7 +43,7 @@ pub async fn invoke_component<T>(
                 stdout: None,
                 username_component_name,
                 start,
-                duration: chrono::Utc::now().signed_duration_since(start).num_milliseconds().unsigned_abs(),
+                duration: chrono::Utc::now().signed_duration_since(start).num_milliseconds(),
                 status: 400
             })
             .await.unwrap();
@@ -128,7 +128,7 @@ pub async fn invoke_component<T>(
             stdout: Some(stdout),
             username_component_name,
             start,
-            duration: chrono::Utc::now().signed_duration_since(start).num_milliseconds().unsigned_abs(),
+            duration: chrono::Utc::now().signed_duration_since(start).num_milliseconds(),
             status
         })
         .await.unwrap();
