@@ -33,7 +33,8 @@ Clone an example project and create a component:
 ```sh
 git clone https://github.com/viniciusfonseca/raikiri-hello-world.git
 cd raikiri-hello-world
-raikiri component add --name helloworld --path ./helloworld.wasm
+cargo component build --release
+raikiri component add --name helloworld --path ./target/wasm32-wasi/release/*.wasm
 ```
 
 Run the component:
