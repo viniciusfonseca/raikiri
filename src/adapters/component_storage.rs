@@ -1,6 +1,8 @@
-use homedir::get_my_home;
-use tokio::fs;
 use wasmtime::{component::Component, Config, Engine};
+
+use crate::adapters::raikirifs::get_raikiri_home;
+
+use super::raikirifs;
 
 pub async fn add_component(
     username: String,
@@ -22,13 +24,12 @@ pub async fn add_component_bytes(
     config.async_support(true);
     let engine = Engine::new(&config)?;
     let component = Component::from_binary(&engine, component_bytes).expect("error compiling wasm component");
-    let homedir = get_my_home()?.unwrap();
-    let homedir = homedir.to_str().unwrap();
-    let aot_component_path = format!("{homedir}/.raikiri/components/{username}.{component_name}.aot.wasm");
+    let raikiri_home = get_raikiri_home()?;
+    let aot_component_path = format!("{raikiri_home}/components/{username}.{component_name}.aot.wasm");
     let bytes = component
         .serialize()
         .expect("error serializing component to file");
-    fs::write(&aot_component_path, bytes).await?;
+    raikirifs::write_file(format!("components/{username}.{component_name}.aot.wasm"), bytes).await?;
     Ok(aot_component_path)
 }
 
@@ -36,11 +37,5 @@ pub async fn remove_component(
     username: String,
     component_name: String
 ) -> Result<(), Box<dyn std::error::Error>> {
-
-    let homedir = get_my_home()?.unwrap();
-    let homedir = homedir.to_str().unwrap();
-    let aot_component_path = format!("{homedir}/.raikiri/components/{username}.{component_name}.aot.wasm");
-    fs::remove_file(aot_component_path).await?;
-
-    Ok(())
+    raikirifs::remove_file(format!("components/{username}.{component_name}.aot.wasm")).await
 }

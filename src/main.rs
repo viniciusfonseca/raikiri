@@ -1,4 +1,4 @@
-use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, setup_app_dir::setup_app_dir, wasi_view::Wasi};
+use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::init, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
 use server::start_server;
@@ -26,6 +26,10 @@ enum Commands {
     Component {
         #[command(subcommand)]
         command: ComponentSubcommand
+    },
+    UpdateCryptoKey {
+        #[arg(short, long)]
+        path: String
     }
 }
 
@@ -52,13 +56,19 @@ enum ComponentSubcommand {
     Run {
         #[arg(short, long)]
         request: String,
+    },
+    UpdateSecret {
+        #[arg(short, long)]
+        component_name: String,
+        #[arg(short, long)]
+        secrets_path: String,
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let username = whoami::username();
-    setup_app_dir()?;
+    init().await?;
     match Cli::parse().command {
         Commands::Server { command } => {
             match command {
@@ -99,8 +109,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let username_component_name = format!("{username}.{name}");
                     component_storage::remove_component(username, name).await?;
                     println!("Successfully removed component {username_component_name}");
+                },
+                ComponentSubcommand::UpdateSecret { component_name, secrets_path } => {
+                    let username_component_name = format!("{username}.{component_name}");
+                    let secrets_content = tokio::fs::read(secrets_path).await?;
+                    secret_storage::update_component_secrets(username_component_name.clone(), secrets_content).await?;
+                    println!("Successfully updated secret for component {username_component_name}");
                 }
             }
+        },
+        Commands::UpdateCryptoKey { path } => {
+            let key_bytes = tokio::fs::read(path).await?;
+            secret_storage::update_crypto_key(username, key_bytes).await?;
+            println!("Successfully updated crypto key");
         }
     }
     Ok(())

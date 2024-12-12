@@ -1,16 +1,14 @@
-use homedir::get_my_home;
 use wasmtime::{component::Component, Config, Engine};
 
-use crate::adapters::cache::{Cache, new_empty_cache};
+use crate::{adapters::cache::{new_empty_cache, Cache}, adapters::raikirifs::get_raikiri_home};
 
 pub type ComponentRegistry = Cache<String, Component>;
 
 pub async fn build_registry() -> Result<ComponentRegistry, Box<dyn std::error::Error>> {
     let component_registry = new_empty_cache();
 
-    let homedir = get_my_home()?.unwrap();
-    let homedir = homedir.to_str().unwrap();
-    let mut entries = tokio::fs::read_dir(format!("{homedir}/.raikiri/components/")).await?;
+    let raikiri_home = get_raikiri_home()?;
+    let mut entries = tokio::fs::read_dir(format!("{raikiri_home}/components/")).await?;
     let mut config = Config::new();
     config.cache_config_load_default()?;
     config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
