@@ -41,7 +41,10 @@ pub async fn update_crypto_key(username: String, new_key: Vec<u8>) -> Result<(),
     while let Some(entry) = entries.next_entry().await.unwrap() {
         let path = entry.path();
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        raikirifs::remove_file(format!("secrets/{file_name}").into()).await.unwrap();
+        if file_name.ends_with(".new") { continue }
+        let new_content = raikirifs::read_file(format!("secrets/{file_name}.new").into()).await.unwrap();
+        raikirifs::write_file(format!("secrets/{file_name}").into(), new_content).await.unwrap();
+        raikirifs::remove_file(format!("secrets/{file_name}.new").into()).await.unwrap();
     }
     remove_all_new_encrypted(&username).await;
 
