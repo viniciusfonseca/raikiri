@@ -1,11 +1,21 @@
 use homedir::get_my_home;
-use openssl::encrypt;
 use tokio::fs::{self, DirEntry};
-use yaml_rust2::{Yaml, YamlLoader};
+use yaml_rust2::YamlLoader;
 
 use super::raikirifs;
 
 pub async fn get_component_secrets(username_component_name: String) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+
+    match raikirifs::exists(format!("secrets/{username_component_name}.secret")).await {
+        Ok(exists) => {
+            if !exists {
+                return Ok(Vec::new());
+            }
+        }
+        Err(err) => {
+            return Err(err);
+        }
+    }
 
     let encrypted = raikirifs::read_file(format!("secrets/{username_component_name}.secret")).await?;
     let username = username_component_name.split(".").next().unwrap();

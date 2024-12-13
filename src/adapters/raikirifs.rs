@@ -30,3 +30,8 @@ pub async fn remove_file(path: String) -> Result<(), Box<dyn std::error::Error>>
     tokio::fs::remove_file(format!("{home}/{path}")).await?;
     Ok(())
 }
+
+pub async fn exists(path: String) -> Result<bool, Box<dyn std::error::Error>> {
+    let home = get_raikiri_home()?;
+    Ok(tokio::fs::metadata(format!("{home}/{path}")).await?.is_file())
+}
