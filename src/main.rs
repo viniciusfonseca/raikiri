@@ -100,7 +100,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         component_registry,
                         event_sender: tx
                     };
-                    let response = component_invoke::invoke_component(username_component_name.clone(), request.into(), Wasi::new(component_imports)).await?;
+                    let secrets = secret_storage::get_component_secrets(username_component_name.clone()).await?;
+                    let response = component_invoke::invoke_component(username_component_name.clone(), request.into(), Wasi::new(component_imports, secrets)).await?;
                     println!("Successfully invoked {username_component_name}");
                     let resp_body = BodyExt::collect(response.resp.into_body()).await?.to_bytes().to_vec();
                     println!("Response: {}", String::from_utf8(resp_body)?);

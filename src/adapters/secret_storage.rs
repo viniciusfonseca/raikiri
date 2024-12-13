@@ -1,11 +1,11 @@
 use homedir::get_my_home;
 use openssl::encrypt;
 use tokio::fs::{self, DirEntry};
-use yaml_rust2::YamlLoader;
+use yaml_rust2::{Yaml, YamlLoader};
 
 use super::raikirifs;
 
-pub async fn get_component_secrets(username_component_name: String) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn get_component_secrets(username_component_name: String) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
 
     let encrypted = raikirifs::read_file(format!("secrets/{username_component_name}.secret")).await?;
     let username = username_component_name.split(".").next().unwrap();
@@ -14,7 +14,12 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<St
     let decrypted = openssl::symm::decrypt(openssl::symm::Cipher::aes_256_cbc(), &key, None, &encrypted).unwrap();
     let decrypted = String::from_utf8(decrypted).unwrap();
 
-    Ok(decrypted)
+    let secrets = YamlLoader::load_from_str(&decrypted).expect("error parsing yaml")[0].clone();
+    let mut result_secrets = Vec::new();
+    for (key, value) in secrets.as_hash().unwrap() {
+        result_secrets.push((key.as_str().unwrap().to_string(), value.as_str().unwrap().to_string()));
+    }
+    Ok(result_secrets)
 }
 
 pub async fn get_crypto_key(username: String) -> Result<Vec<u8>, Box<dyn std::error::Error>> {

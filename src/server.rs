@@ -1,6 +1,6 @@
 use std::{convert::Infallible, net::SocketAddr};
 
-use crate::adapters::{cache::Cache, component_events::default_event_handler};
+use crate::adapters::{cache::Cache, component_events::default_event_handler, secret_storage};
 
 use http::{Request, Response};
 use http_body_util::{combinators::BoxBody, BodyExt};
@@ -27,7 +27,8 @@ async fn handle_request(request: Request<hyper::body::Incoming>, component_regis
         component_registry,
         event_sender: tx
     };
-    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), Wasi::new(component_imports)).await.unwrap();
+    let secrets = secret_storage::get_component_secrets(username_component_name.clone()).await.expect("error getting secrets");
+    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), Wasi::new(component_imports, secrets)).await.unwrap();
 
     let (parts, body) = response.resp.into_parts();
     Ok(hyper::Response::from_parts(parts, body))

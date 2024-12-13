@@ -4,7 +4,7 @@ use hyper::body::{Bytes, Frame};
 use tokio::sync::mpsc::Sender;
 use wasmtime_wasi_http::types::HostFutureIncomingResponse;
 
-use super::{component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext, wasi_view::Wasi};
+use super::{component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext, secret_storage, wasi_view::Wasi};
 
 pub struct ComponentImports {
     pub call_stack: Vec<String>,
@@ -53,7 +53,8 @@ impl RaikiriContext for ComponentImports {
                         .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
                         .collect::<Vec<_>>()
                 )))).unwrap();
-                Ok(super::component_invoke::invoke_component(username_component_name, request, Wasi::new(data)).await)
+                let secrets = tokio::runtime::Handle::current().block_on( secret_storage::get_component_secrets(username_component_name.clone())).unwrap();
+                Ok(super::component_invoke::invoke_component(username_component_name, request, Wasi::new(data, secrets)).await)
             });
             return Ok(HostFutureIncomingResponse::Pending(future_handle))
         }
