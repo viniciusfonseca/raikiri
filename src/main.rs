@@ -1,4 +1,4 @@
-use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::init, secret_storage, wasi_view::Wasi};
+use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::{init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
 use server::start_server;
@@ -66,7 +66,7 @@ enum ComponentSubcommand {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), ThreadSafeError> {
     let username = whoami::username();
     init().await?;
     match Cli::parse().command {

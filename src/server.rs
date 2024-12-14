@@ -1,6 +1,6 @@
 use std::{convert::Infallible, net::SocketAddr};
 
-use crate::adapters::{cache::Cache, component_events::default_event_handler, secret_storage};
+use crate::adapters::{cache::Cache, component_events::default_event_handler, raikirifs::ThreadSafeError, secret_storage};
 
 use http::{Request, Response};
 use http_body_util::{combinators::BoxBody, BodyExt};
@@ -34,7 +34,7 @@ async fn handle_request(request: Request<hyper::body::Incoming>, component_regis
     Ok(hyper::Response::from_parts(parts, body))
 }
 
-pub async fn start_server(port: String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(port: String) -> Result<(), ThreadSafeError> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port.parse()?));
 
     let listener = TcpListener::bind(addr).await?;

@@ -2,13 +2,13 @@ use wasmtime::{component::Component, Config, Engine};
 
 use crate::adapters::raikirifs::get_raikiri_home;
 
-use super::raikirifs;
+use super::raikirifs::{self, ThreadSafeError};
 
 pub async fn add_component(
     username: String,
     component_name: String,
     file_path: String,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, ThreadSafeError> {
     let file_content = tokio::fs::read(file_path).await?;
     add_component_bytes(username, component_name, &file_content).await
 }
@@ -17,7 +17,7 @@ pub async fn add_component_bytes(
     username: String,
     component_name: String,
     component_bytes: &Vec<u8>,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, ThreadSafeError> {
     let mut config: Config = Config::new();
     config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
     config.wasm_component_model(true);
@@ -36,6 +36,6 @@ pub async fn add_component_bytes(
 pub async fn remove_component(
     username: String,
     component_name: String
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), ThreadSafeError> {
     raikirifs::remove_file(format!("components/{username}.{component_name}.aot.wasm")).await
 }

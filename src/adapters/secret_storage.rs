@@ -1,12 +1,14 @@
-use homedir::get_my_home;
 use tokio::fs::{self, DirEntry};
-use yaml_rust2::YamlLoader;
+use yaml_rust2::{Yaml, YamlEmitter, YamlLoader};
 
-use super::raikirifs;
+use super::raikirifs::{self, ThreadSafeError};
 
-pub async fn get_component_secrets(username_component_name: String) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+pub async fn get_component_secrets(username_component_name: String) -> Result<Vec<(String, String)>, ThreadSafeError> {
 
-    match raikirifs::exists(format!("secrets/{username_component_name}.secret")).await {
+    let username = username_component_name.split(".").next().unwrap();
+    let hash = format!("{:x?}", openssl::sha::sha256(&username_component_name.as_bytes()));
+
+    match raikirifs::exists(format!("secrets/{hash}.secret")).await {
         Ok(exists) => {
             if !exists {
                 return Ok(Vec::new());
@@ -17,8 +19,7 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<Ve
         }
     }
 
-    let encrypted = raikirifs::read_file(format!("secrets/{username_component_name}.secret")).await?;
-    let username = username_component_name.split(".").next().unwrap();
+    let encrypted = raikirifs::read_file(format!("secrets/{hash}.secret")).await?;
     let key = get_crypto_key(username.into()).await?;
 
     let decrypted = openssl::symm::decrypt(openssl::symm::Cipher::aes_256_cbc(), &key, None, &encrypted).unwrap();
@@ -32,21 +33,49 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<Ve
     Ok(result_secrets)
 }
 
-pub async fn get_crypto_key(username: String) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    
-    raikirifs::read_file(format!("keys/{username}.key").into()).await
+pub async fn gen_new_crypto_key(username: String) -> Result<Vec<u8>, ThreadSafeError> {
+
+    let hash: String = format!("{:x?}", openssl::sha::sha256(&username.as_bytes()));
+
+    let mut key = [0; 32];
+    openssl::rand::rand_bytes(&mut key)?;
+    let key = key.to_vec();
+
+    raikirifs::write_file(format!("keys/{hash}.key"), key.clone()).await?;
+
+    Ok(key)    
 }
 
-pub async fn update_crypto_key(username: String, new_key: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn get_crypto_key(username: String) -> Result<Vec<u8>, ThreadSafeError> {
+    
+    let hash = format!("{:x?}", openssl::sha::sha256(&username.as_bytes()));
+    let key_path = format!("keys/{hash}.key");
+    match raikirifs::exists(key_path.clone()).await {
+        Ok(exists) => {
+            if !exists {
+                let key = gen_new_crypto_key(username.clone()).await?;
+                raikirifs::write_file(key_path, key.clone()).await?;
+                Ok(key)
+            }
+            else {
+                raikirifs::read_file(key_path.into()).await
+            }
+        }
+        Err(err) => Err(err)
+    }
+}
+
+pub async fn update_crypto_key(username: String, new_key: Vec<u8>) -> Result<(), ThreadSafeError> {
 
     let raikiri_home = raikirifs::get_raikiri_home()?;
-    let secrets_path = format!("{raikiri_home}/secrets/{username}");
+    let hash: String = format!("{:x?}", openssl::sha::sha256(&username.as_bytes()));
+    let secrets_path = format!("{raikiri_home}/secrets/{hash}");
     let mut entries = fs::read_dir(&secrets_path).await.expect("error reading secrets directory");
-    let current_key = raikirifs::read_file(format!("keys/{username}.key").into()).await.expect("error reading current key");
+    let current_key = raikirifs::read_file(format!("keys/{hash}.key").into()).await.expect("error reading current key");
 
     while let Some(entry) = entries.next_entry().await.unwrap() {
-        if update_encrypted_secret(entry, &username, &current_key, &new_key).await.is_err() {
-            remove_all_new_encrypted(&username).await;
+        if update_encrypted_secret(entry, &hash, &current_key, &new_key).await.is_err() {
+            remove_all_new_encrypted(&hash).await;
             return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "error updating encrypted secrets")));
         }
     }
@@ -66,7 +95,7 @@ pub async fn update_crypto_key(username: String, new_key: Vec<u8>) -> Result<(),
     raikirifs::write_file(format!("keys/{username}.key"), new_key).await
 }
 
-async fn update_encrypted_secret(entry: DirEntry, username: &String, current_key: &Vec<u8>, new_key: &Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+async fn update_encrypted_secret(entry: DirEntry, username: &String, current_key: &Vec<u8>, new_key: &Vec<u8>) -> Result<(), ThreadSafeError> {
     let path = entry.path();
     let file_name = path.file_name().unwrap().to_str().unwrap();
     let encrypted = raikirifs::read_file(format!("secrets/{username}/{file_name}").into()).await.unwrap();
@@ -91,15 +120,29 @@ async fn remove_all_new_encrypted(username: &String) {
     }
 }
 
-pub async fn update_component_secrets(username_component_name: String, secrets_content: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn serialize_yaml(yaml: Yaml) -> Result<String, tokio::task::JoinError> {
+    tokio::spawn(async move {
+        let mut output = String::new();
+        let mut yaml_emitter = YamlEmitter::new(&mut output);
+        yaml_emitter.dump(&yaml).expect("error dumping yaml");
+        output
+    }).await
+}
+
+pub async fn update_component_secrets(username_component_name: String, secrets_content: Vec<u8>) -> Result<(), ThreadSafeError> {
 
     let secrets = YamlLoader::load_from_str(&String::from_utf8(secrets_content).unwrap()).expect("error parsing yaml");
-    let secret = secrets[0].as_str().unwrap().to_string();
+    let secret = serialize_yaml(secrets[0].clone()).await?;
 
-    let homedir = get_my_home()?.unwrap();
-    let homedir = homedir.to_str().unwrap();
-    let secret_path = format!("{homedir}/.raikiri/secrets/{username_component_name}.secret");
-    fs::write(&secret_path, secret).await?;
+    let username = username_component_name.split(".").next().unwrap();
+    let raikiri_home = raikirifs::get_raikiri_home()?;
+    let secrets_path = format!("{raikiri_home}/secrets/{username}");
+    fs::create_dir_all(&secrets_path).await?;
+
+    let crypto_key = raikirifs::read_file(format!("keys/{username}.key").into()).await?;
+
+    let encrypted = openssl::symm::encrypt(openssl::symm::Cipher::aes_256_cbc(), &crypto_key, None, &secret.as_bytes())?;
+    raikirifs::write_file(format!("secrets/{username}/{username_component_name}.secret"), encrypted).await?;
 
     Ok(())
 }

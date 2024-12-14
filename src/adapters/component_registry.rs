@@ -2,9 +2,11 @@ use wasmtime::{component::Component, Config, Engine};
 
 use crate::{adapters::cache::{new_empty_cache, Cache}, adapters::raikirifs::get_raikiri_home};
 
+use super::raikirifs::ThreadSafeError;
+
 pub type ComponentRegistry = Cache<String, Component>;
 
-pub async fn build_registry() -> Result<ComponentRegistry, Box<dyn std::error::Error>> {
+pub async fn build_registry() -> Result<ComponentRegistry, ThreadSafeError> {
     let component_registry = new_empty_cache();
 
     let raikiri_home = get_raikiri_home()?;
