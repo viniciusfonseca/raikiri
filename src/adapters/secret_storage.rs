@@ -6,9 +6,11 @@ use super::raikirifs::{self, ThreadSafeError};
 pub async fn get_component_secrets(username_component_name: String) -> Result<Vec<(String, String)>, ThreadSafeError> {
 
     let username = username_component_name.split(".").next().unwrap();
+    let username_hash = format!("{:x?}", openssl::sha::sha256(&username.as_bytes()));
     let hash = format!("{:x?}", openssl::sha::sha256(&username_component_name.as_bytes()));
+    let secrets_path = format!("secrets/{username_hash}/{hash}");
 
-    match raikirifs::exists(format!("secrets/{hash}.secret")).await {
+    match raikirifs::exists(secrets_path.clone()).await {
         Ok(exists) => {
             if !exists {
                 return Ok(Vec::new());
@@ -19,7 +21,7 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<Ve
         }
     }
 
-    let encrypted = raikirifs::read_file(format!("secrets/{hash}.secret")).await?;
+    let encrypted = raikirifs::read_file(secrets_path.clone()).await?;
     let key = get_crypto_key(username.into()).await?;
 
     let decrypted = openssl::symm::decrypt(openssl::symm::Cipher::aes_256_cbc(), &key, None, &encrypted).unwrap();
@@ -33,27 +35,20 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<Ve
     Ok(result_secrets)
 }
 
-pub async fn gen_new_crypto_key(username: String) -> Result<Vec<u8>, ThreadSafeError> {
-
-    let hash: String = format!("{:x?}", openssl::sha::sha256(&username.as_bytes()));
-
+pub async fn gen_new_crypto_key() -> Result<Vec<u8>, ThreadSafeError> {
     let mut key = [0; 32];
     openssl::rand::rand_bytes(&mut key)?;
-    let key = key.to_vec();
-
-    raikirifs::write_file(format!("keys/{hash}.key"), key.clone()).await?;
-
-    Ok(key)    
+    Ok(key.to_vec())
 }
 
 pub async fn get_crypto_key(username: String) -> Result<Vec<u8>, ThreadSafeError> {
     
     let hash = format!("{:x?}", openssl::sha::sha256(&username.as_bytes()));
-    let key_path = format!("keys/{hash}.key");
+    let key_path = format!("keys/{hash}");
     match raikirifs::exists(key_path.clone()).await {
         Ok(exists) => {
             if !exists {
-                let key = gen_new_crypto_key(username.clone()).await?;
+                let key = gen_new_crypto_key().await?;
                 raikirifs::write_file(key_path, key.clone()).await?;
                 Ok(key)
             }

@@ -4,12 +4,13 @@ use hyper::body::{Bytes, Frame};
 use tokio::sync::mpsc::Sender;
 use wasmtime_wasi_http::types::HostFutureIncomingResponse;
 
-use super::{component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext, secret_storage, wasi_view::Wasi};
+use super::{cache::Cache, component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext, secret_storage, wasi_view::Wasi};
 
 pub struct ComponentImports {
     pub call_stack: Vec<String>,
     pub event_sender: Sender<ComponentEvent>,
-    pub component_registry: ComponentRegistry
+    pub component_registry: ComponentRegistry,
+    pub secrets_cache: Cache<String, Vec<(String, String)>>
 }
 
 impl Clone for ComponentImports {
@@ -17,7 +18,8 @@ impl Clone for ComponentImports {
         Self {
             call_stack: self.call_stack.clone(),
             event_sender: self.event_sender.clone(),
-            component_registry: self.component_registry.clone()
+            component_registry: self.component_registry.clone(),
+            secrets_cache: self.secrets_cache.clone()
         }
     }
 }

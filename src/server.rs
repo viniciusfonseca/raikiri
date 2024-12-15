@@ -1,6 +1,6 @@
 use std::{convert::Infallible, net::SocketAddr};
 
-use crate::adapters::{cache::Cache, component_events::default_event_handler, raikirifs::ThreadSafeError, secret_storage};
+use crate::adapters::{cache::{new_empty_cache, Cache}, component_events::default_event_handler, raikirifs::ThreadSafeError, secret_storage};
 
 use http::{Request, Response};
 use http_body_util::{combinators::BoxBody, BodyExt};
@@ -12,7 +12,7 @@ use wasmtime_wasi_http::bindings::http::types::ErrorCode;
 
 use crate::{adapters::{component_events::ComponentEvent, component_imports::ComponentImports, component_invoke, component_registry, wasi_view::Wasi}, types::InvokeRequest};
 
-async fn handle_request(request: Request<hyper::body::Incoming>, component_registry: Cache<String, Component>) -> Result<Response<BoxBody<Bytes, ErrorCode>>, Infallible> {
+async fn handle_request(request: Request<hyper::body::Incoming>, component_registry: Cache<String, Component>, secrets_cache: Cache<String, Vec<(String, String)>>) -> Result<Response<BoxBody<Bytes, ErrorCode>>, Infallible> {
     let invoke_request = serde_json::from_slice::<InvokeRequest>(&request.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap();
     let username_component_name = invoke_request.username_component_name.clone();
 
@@ -22,13 +22,17 @@ async fn handle_request(request: Request<hyper::body::Incoming>, component_regis
             default_event_handler(message)
         }
     });
+    let secrets_entry = &secrets_cache.get_entry_by_key(username_component_name.clone(), || {
+        tokio::runtime::Handle::current().block_on( secret_storage::get_component_secrets(username_component_name.clone())).unwrap()
+    }).await;
+    let secrets = secrets_entry.read().await;
     let component_imports = ComponentImports {
         call_stack: Vec::new(),
         component_registry,
-        event_sender: tx
+        event_sender: tx,
+        secrets_cache
     };
-    let secrets = secret_storage::get_component_secrets(username_component_name.clone()).await.expect("error getting secrets");
-    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), Wasi::new(component_imports, secrets)).await.unwrap();
+    let response = component_invoke::invoke_component(username_component_name.clone(), invoke_request.into(), Wasi::new(component_imports, secrets.to_vec())).await.unwrap();
 
     let (parts, body) = response.resp.into_parts();
     Ok(hyper::Response::from_parts(parts, body))
@@ -44,6 +48,7 @@ pub async fn start_server(port: String) -> Result<(), ThreadSafeError> {
     println!("Registering components...");
 
     let component_registry = component_registry::build_registry().await?;
+    let secrets_cache = new_empty_cache();
 
     println!("Successfully registered components");
 
@@ -51,6 +56,7 @@ pub async fn start_server(port: String) -> Result<(), ThreadSafeError> {
     loop {
         let (stream, _) = listener.accept().await?;
         let component_registry = component_registry.clone();
+        let secrets_cache = secrets_cache.clone();
         // Use an adapter to access something implementing `tokio::io` traits as if they implement
         // `hyper::rt` IO traits.
         let io = TokioIo::new(stream);
@@ -60,7 +66,7 @@ pub async fn start_server(port: String) -> Result<(), ThreadSafeError> {
             // Finally, we bind the incoming connection to our `hello` service
             if let Err(err) = http1::Builder::new()
                 // `service_fn` converts our function in a `Service`
-                .serve_connection(io, service_fn(|req| handle_request(req, component_registry.clone())))
+                .serve_connection(io, service_fn(|req| handle_request(req, component_registry.clone(), secrets_cache.clone())))
                 .await
             {
                 eprintln!("Error serving connection: {:?}", err);

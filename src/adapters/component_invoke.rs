@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use homedir::get_my_home;
 use http_body_util::{combinators::BoxBody, BodyExt};
 use hyper::body::Bytes;
 use wasmtime::{

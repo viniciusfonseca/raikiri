@@ -98,7 +98,8 @@ async fn main() -> Result<(), ThreadSafeError> {
                     let component_imports = ComponentImports {
                         call_stack: Vec::new(),
                         component_registry,
-                        event_sender: tx
+                        event_sender: tx,
+                        secrets_cache: new_empty_cache()
                     };
                     let secrets = secret_storage::get_component_secrets(username_component_name.clone()).await?;
                     let response = component_invoke::invoke_component(username_component_name.clone(), request.into(), Wasi::new(component_imports, secrets)).await?;
