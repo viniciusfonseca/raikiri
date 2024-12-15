@@ -60,6 +60,7 @@ pub async fn get_crypto_key(username: String) -> Result<Vec<u8>, ThreadSafeError
     }
 }
 
+#[allow(unused)]
 pub async fn update_crypto_key(username: String, new_key: Vec<u8>) -> Result<(), ThreadSafeError> {
 
     let raikiri_home = raikirifs::get_raikiri_home()?;
@@ -90,6 +91,7 @@ pub async fn update_crypto_key(username: String, new_key: Vec<u8>) -> Result<(),
     raikirifs::write_file(format!("keys/{username}.key"), new_key).await
 }
 
+#[allow(unused)]
 async fn update_encrypted_secret(entry: DirEntry, username: &String, current_key: &Vec<u8>, new_key: &Vec<u8>) -> Result<(), ThreadSafeError> {
     let path = entry.path();
     let file_name = path.file_name().unwrap().to_str().unwrap();
@@ -101,6 +103,7 @@ async fn update_encrypted_secret(entry: DirEntry, username: &String, current_key
     Ok(())
 }
 
+#[allow(unused)]
 async fn remove_all_new_encrypted(username: &String) {
 
     let raikiri_home = raikirifs::get_raikiri_home().unwrap();
