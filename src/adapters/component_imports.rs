@@ -55,8 +55,11 @@ impl RaikiriContext for ComponentImports {
                         .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
                         .collect::<Vec<_>>()
                 )))).unwrap();
-                let secrets = tokio::runtime::Handle::current().block_on( secret_storage::get_component_secrets(username_component_name.clone())).unwrap();
-                Ok(super::component_invoke::invoke_component(username_component_name, request, Wasi::new(data, secrets)).await)
+                let secrets_entry = &data.secrets_cache.get_entry_by_key(username_component_name.clone(), || {
+                    tokio::runtime::Handle::current().block_on( secret_storage::get_component_secrets(username_component_name.clone())).unwrap()
+                }).await;
+                let secrets = secrets_entry.read().await;
+                Ok(super::component_invoke::invoke_component(username_component_name, request, Wasi::new(data, secrets.to_vec())).await)
             });
             return Ok(HostFutureIncomingResponse::Pending(future_handle))
         }
