@@ -43,8 +43,14 @@ Run the component:
 raikiri component run --request '{"username_component_name": "<user>.helloworld","method": "GET","headers": {},"body": ""}''
 ```
 
-Add component secrets:
+It's also possible to add component secrets:
 
 ```sh
-raikiri component update-secret --component-name secrets --secrets-path env.yml
+raikiri component update-secret --component-name <component-name> --secrets-path <yml-file-path>
+```
+
+Secrets are stored locally and encrypted with the AES-256 algorithm. You may also provide your own key for secrets encryption (file must contain 32 bytes, more encryption algorithms will soon be supported):
+
+```sh
+raikiri update-crypto-key --key-path <key>
 ```
