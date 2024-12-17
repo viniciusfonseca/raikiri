@@ -114,7 +114,9 @@ async fn main() -> Result<(), ThreadSafeError> {
                 },
                 ComponentSubcommand::UpdateSecret { component_name, secrets_path } => {
                     let username_component_name = format!("{username}.{component_name}");
+                    println!("Updating secret for component {username_component_name}");
                     let secrets_content = tokio::fs::read(secrets_path).await?;
+                    println!("Secrets: {secrets_content:?}");
                     secret_storage::update_component_secrets(username_component_name.clone(), secrets_content).await?;
                     println!("Successfully updated secret for component {username_component_name}");
                 }
