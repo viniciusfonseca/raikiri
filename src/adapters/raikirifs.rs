@@ -12,6 +12,7 @@ pub async fn init() -> Result<(), ThreadSafeError> {
     let home = get_raikiri_home()?;
     std::fs::create_dir_all(format!("{home}/components"))?;
     std::fs::create_dir_all(format!("{home}/secrets"))?;
+    std::fs::create_dir_all(format!("{home}/keys"))?;
     Ok(())
 }
 
