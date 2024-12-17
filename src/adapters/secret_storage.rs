@@ -46,7 +46,10 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<Ve
     let secrets = YamlLoader::load_from_str(&decrypted)?[0].clone();
     let mut result_secrets = Vec::new();
     for (key, value) in secrets.as_hash().ok_or("error getting secrets")?.iter() {
-        result_secrets.push((key.as_str().ok_or("error getting key")?.to_string(), value.as_str().ok_or("error getting value")?.to_string()));
+        result_secrets.push((
+            key.as_str().ok_or("error getting key")?.to_string(),
+            value.as_str().ok_or("error getting value")?.to_string()
+        ));
     }
     Ok(result_secrets)
 }

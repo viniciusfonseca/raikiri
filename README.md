@@ -42,3 +42,9 @@ Run the component:
 ```sh
 raikiri component run --request '{"username_component_name": "<user>.helloworld","method": "GET","headers": {},"body": ""}''
 ```
+
+Add component secrets:
+
+```sh
+raikiri component update-secret --component-name secrets --secrets-path env.yml
+```
