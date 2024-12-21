@@ -22,8 +22,8 @@ async fn handle_request(request: Request<hyper::body::Incoming>, component_regis
             default_event_handler(message)
         }
     });
-    let secrets_entry = &secrets_cache.get_entry_by_key(username_component_name.clone(), || {
-        tokio::runtime::Handle::current().block_on( secret_storage::get_component_secrets(username_component_name.clone())).unwrap()
+    let secrets_entry = &secrets_cache.get_entry_by_key_async_build(username_component_name.clone(), async {
+        secret_storage::get_component_secrets(username_component_name.clone()).await.unwrap_or_else(|_| Vec::new())
     }).await;
     let secrets = secrets_entry.read().await;
     let component_imports = ComponentImports {
