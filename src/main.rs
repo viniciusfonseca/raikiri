@@ -1,4 +1,4 @@
-use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::{init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
+use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
 use server::start_server;
@@ -7,6 +7,7 @@ use types::InvokeRequest;
 mod server;
 mod adapters;
 mod types;
+mod sdk;
 
 #[derive(Debug, Parser)]
 #[command(name = "raikiri")]
@@ -27,10 +28,15 @@ enum Commands {
         #[command(subcommand)]
         command: ComponentSubcommand
     },
+    #[command(arg_required_else_help = true)]
+    Cloud {
+        #[command(subcommand)]
+        command: CloudSubcommand
+    },
     UpdateCryptoKey {
         #[arg(short, long)]
         path: String
-    }
+    },
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -62,6 +68,23 @@ enum ComponentSubcommand {
         component_name: String,
         #[arg(short, long)]
         secrets_path: String,
+    }
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum CloudSubcommand {
+    StoreToken {
+        token: String
+    },
+    UploadComponent {
+        #[arg(short, long)]
+        name: String,
+        #[arg(short, long)]
+        path: String
+    },
+    CreateApiGateway {
+        #[arg(short, long)]
+        path: String
     }
 }
 
@@ -125,6 +148,23 @@ async fn main() -> Result<(), ThreadSafeError> {
             let key_bytes = tokio::fs::read(path).await?;
             secret_storage::update_crypto_key(username, key_bytes).await?;
             println!("Successfully updated crypto key");
+        },
+        Commands::Cloud { command } => {
+            match command {
+                CloudSubcommand::StoreToken { token } => {
+                    raikirifs::write_file(".cloud-token".to_string(), token.into_bytes().to_vec()).await?;
+                    println!("Successfully stored token");
+                }
+                CloudSubcommand::UploadComponent { name, path } => {
+                    let username_component_name = format!("{username}.{name}");
+                    sdk::upload_component(username, name.clone(), path).await?;
+                    println!("Successfully uploaded component {username_component_name}");
+                },
+                CloudSubcommand::CreateApiGateway { path } => {
+                    sdk::create_api_gateway().await?;
+                    println!("Successfully created api gateway");
+                }
+            }
         }
     }
     Ok(())

@@ -14,7 +14,7 @@ impl<'a> std::fmt::LowerHex for ByteBuf<'a> {
     }
 }
 
-pub async fn get_component_secrets(username_component_name: String) -> Result<Vec<(String, String)>, ThreadSafeError> {
+pub async fn get_component_secrets_yaml(username_component_name: String) -> Result<Yaml, ThreadSafeError> {
 
     let username = username_component_name.split(".").next().ok_or("error getting username")?;
     let username_hash = format!("{:x}", ByteBuf(&openssl::sha::sha256(&username.as_bytes())));
@@ -24,13 +24,13 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<Ve
     match raikirifs::exists(secrets_path.clone()).await {
         Ok(exists) => {
             if !exists {
-                return Ok(Vec::new());
+                return Ok(Yaml::from_str(""));
             }
         }
         Err(err) => {
             if let Some(err) = err.downcast_ref::<std::io::Error>() {
                 if err.kind() == std::io::ErrorKind::NotFound {
-                    return Ok(Vec::new());
+                    return Ok(Yaml::from_str(""));
                 }
             }
             return Err(err);
@@ -43,7 +43,13 @@ pub async fn get_component_secrets(username_component_name: String) -> Result<Ve
     let decrypted = openssl::symm::decrypt(openssl::symm::Cipher::aes_256_cbc(), &key, None, &encrypted)?;
     let decrypted = String::from_utf8(decrypted)?;
 
-    let secrets = YamlLoader::load_from_str(&decrypted)?[0].clone();
+    Ok(YamlLoader::load_from_str(&decrypted)?[0].clone())
+
+}
+
+pub async fn get_component_secrets(username_component_name: String) -> Result<Vec<(String, String)>, ThreadSafeError> {
+
+    let secrets = get_component_secrets_yaml(username_component_name.clone()).await?;
     let mut result_secrets = Vec::new();
     for (key, value) in secrets.as_hash().ok_or("error getting secrets")?.iter() {
         result_secrets.push((

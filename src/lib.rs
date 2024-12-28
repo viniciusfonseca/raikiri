@@ -1,4 +1,5 @@
 mod adapters;
+mod sdk;
 
 pub use adapters::cache::new_empty_cache;
 pub use adapters::component_events::default_event_handler;
@@ -15,5 +16,7 @@ pub use adapters::context::RaikiriContext;
 pub use adapters::wasi_view::Wasi;
 pub use adapters::secret_storage::update_component_secrets;
 pub use adapters::secret_storage::get_component_secrets;
+pub use adapters::secret_storage::get_component_secrets_yaml;
 pub use adapters::raikirifs::get_raikiri_home;
 pub use adapters::raikirifs::init;
+pub use adapters::secret_storage::serialize_yaml;
