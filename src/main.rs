@@ -84,7 +84,9 @@ enum CloudSubcommand {
     },
     CreateApiGateway {
         #[arg(short, long)]
-        path: String
+        path: String,
+        #[arg(short, long)]
+        version: String
     }
 }
 
@@ -160,8 +162,10 @@ async fn main() -> Result<(), ThreadSafeError> {
                     sdk::upload_component(username, name.clone(), path).await?;
                     println!("Successfully uploaded component {username_component_name}");
                 },
-                CloudSubcommand::CreateApiGateway { path } => {
-                    sdk::create_api_gateway().await?;
+                CloudSubcommand::CreateApiGateway { path, version } => {
+                    let yml_bytes = tokio::fs::read(path).await?;
+                    let version = version.parse::<i32>()?;
+                    sdk::create_api_gateway(yml_bytes, version).await?;
                     println!("Successfully created api gateway");
                 }
             }

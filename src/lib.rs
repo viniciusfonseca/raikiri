@@ -20,3 +20,6 @@ pub use adapters::secret_storage::get_component_secrets_yaml;
 pub use adapters::raikirifs::get_raikiri_home;
 pub use adapters::raikirifs::init;
 pub use adapters::secret_storage::serialize_yaml;
+
+pub use sdk::create_api_gateway;
+pub use sdk::upload_component;

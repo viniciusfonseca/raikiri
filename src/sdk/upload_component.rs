@@ -1,5 +1,7 @@
 use crate::adapters::raikirifs::{self, ThreadSafeError};
 
+use super::shared::get_cloud_url;
+
 pub async fn upload_component(username: String, component_name: String, file_path: String) -> Result<(), ThreadSafeError> {
 
     let token = String::from_utf8(raikirifs::read_file(".cloud-token".to_string()).await?)?;
@@ -11,8 +13,10 @@ pub async fn upload_component(username: String, component_name: String, file_pat
         .part("component_name", reqwest::multipart::Part::text(component_name.clone()))
         .part("component_bytes", multipart);
 
+    let raikiri_cloud_url = get_cloud_url();
+
     reqwest::Client::new()
-        .post(format!("https://raikiri.distanteagle.dev/api/v1/components/{username}/{component_name}"))
+        .post(format!("{raikiri_cloud_url}/components"))
         .header("Authorization", format!("Bearer {token}"))
         .multipart(form)
         .send()
