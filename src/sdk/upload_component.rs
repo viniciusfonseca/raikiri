@@ -13,7 +13,7 @@ pub async fn upload_component(username: String, component_name: String, file_pat
         .part("component_name", reqwest::multipart::Part::text(component_name.clone()))
         .part("component_bytes", multipart);
 
-    let raikiri_cloud_url = get_cloud_url();
+    let raikiri_cloud_url = get_cloud_url().await;
 
     reqwest::Client::new()
         .post(format!("{raikiri_cloud_url}/components"))
