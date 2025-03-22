@@ -1,7 +1,7 @@
 use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
-use server::start_server;
+use server::RaikiriServer;
 use types::InvokeRequest;
 
 mod server;
@@ -61,7 +61,7 @@ enum ComponentSubcommand {
     },
     Run {
         #[arg(short, long)]
-        request: String,
+        conf: Option<String>,
     },
     UpdateSecret {
         #[arg(short, long)]
@@ -99,7 +99,8 @@ async fn main() -> Result<(), ThreadSafeError> {
             match command {
                 ServerSubcommand::Start { port } => {
                     println!("starting Raikiri server at port: {port}");
-                    start_server(port).await?;
+                    let server = RaikiriServer::new(port).await?;
+                    server.run().await?;
                 }
             }
         },
@@ -110,8 +111,14 @@ async fn main() -> Result<(), ThreadSafeError> {
                     component_storage::add_component(username, name.clone(), path).await?;
                     println!("Successfully added component {username_component_name}");
                 },
-                ComponentSubcommand::Run { request } => {
-                    let request = serde_json::from_str::<InvokeRequest>(&request)?;
+                ComponentSubcommand::Run { conf } => {
+                    let conf_file = adapters::conf_file::ConfFile::build()?;
+                    let conf = match conf {
+                        Some(conf) => conf,
+                        None => conf_file.run_confs.keys().next().unwrap().to_string()
+                    };
+                    let conf = conf_file.run_confs.get(&conf).unwrap();
+                    let request = InvokeRequest::new(conf.component.clone(), conf.method.clone(), conf.headers.clone(), conf.body.as_bytes().to_vec());
                     let username_component_name = request.username_component_name.clone();
                     let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
                     tokio::spawn(async move {
