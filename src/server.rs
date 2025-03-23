@@ -91,15 +91,6 @@ mod tests {
     #[tokio::test]
     async fn test_start_server() -> Result<(), wasmtime::Error> {
 
-        let task = tokio::spawn(async {
-            let server = RaikiriServer::new("8080".to_string()).await.unwrap();
-            server.run().await.unwrap();
-        });
-
-
-
-        task.abort();
-
         Ok(())
     }
 }

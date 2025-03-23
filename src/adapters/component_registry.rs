@@ -22,8 +22,7 @@ pub async fn build_registry() -> Result<ComponentRegistry, ThreadSafeError> {
 
         let filename = file.path().file_name().unwrap().to_str().unwrap().to_string().replace(".aot.wasm", "");
         component_registry.get_entry_by_key(filename.clone(), || {
-            let component = unsafe { Component::deserialize_file(&engine, file.path()).unwrap() };
-            component
+            unsafe { Component::deserialize_file(&engine, file.path()).unwrap() }
         }).await;
         println!("successfully registered {filename}");
     }
