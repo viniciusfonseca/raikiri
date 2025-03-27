@@ -1,6 +1,7 @@
 use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
 use http_body_util::BodyExt;
+use raikiri::raikiri_env::RaikiriEnvironment;
 use server::RaikiriServer;
 use types::InvokeRequest;
 
@@ -99,7 +100,8 @@ async fn main() -> Result<(), ThreadSafeError> {
             match command {
                 ServerSubcommand::Start { port } => {
                     println!("starting Raikiri server at port: {port}");
-                    let server = RaikiriServer::new(port).await?;
+                    let env = RaikiriEnvironment::new();
+                    let server = RaikiriServer::new(env, port).await?;
                     server.run().await?;
                 }
             }

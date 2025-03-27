@@ -1,5 +1,5 @@
 mod adapters;
-mod domain;
+pub mod domain;
 mod sdk;
 
 pub use adapters::cache::new_empty_cache;

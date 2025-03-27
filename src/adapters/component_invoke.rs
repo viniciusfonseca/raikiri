@@ -1,7 +1,8 @@
 use std::time::Duration;
 
+use http::Request;
 use http_body_util::{combinators::BoxBody, BodyExt};
-use hyper::body::Bytes;
+use hyper::body::{Body, Bytes};
 use wasmtime::{
     component::{Component, Linker},
     Config, Engine, Store,
@@ -30,13 +31,14 @@ pub async fn build_response(status: u16, body: &str) -> IncomingResponse {
     }
 }
 
-pub async fn invoke_component<T>(
+pub async fn invoke_component<T, B>(
     username_component_name: String,
-    req: hyper::Request<BoxBody<Bytes, hyper::Error>>,
+    req: Request<B>,
     wasi: Wasi<T>,
 ) -> Result<IncomingResponse, wasmtime_wasi_http::bindings::http::types::ErrorCode>
 where
     T: Send + Clone + RaikiriContext + 'static,
+    B: Body<Data = Bytes, Error = hyper::Error> + Send + Sync + 'static,
 {
     let start = chrono::Utc::now();
     let data = wasi.data.clone();
