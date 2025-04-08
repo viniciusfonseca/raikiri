@@ -7,6 +7,7 @@ use super::raikirifs::ThreadSafeError;
 
 static CONF_FILE_PATH: &str = "raikiri.yaml";
 
+#[derive(Clone)]
 pub struct ConfFile {
     pub components: HashMap<String, String>,
     pub run_confs: HashMap<String, RunConf>,
@@ -49,6 +50,7 @@ impl ConfFile {
     }
 }
 
+#[derive(Clone)]
 pub struct RunConf {
     pub component: String,
     pub method: String,

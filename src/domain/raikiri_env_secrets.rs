@@ -72,7 +72,7 @@ impl RaikiriEnvironmentSecrets for RaikiriEnvironment {
         let hash = format!("{:x}", ByteBuf(&openssl::sha::sha256(&user.as_bytes())));
         let key_path = format!("keys/{hash}");
         if self.file_exists(key_path.clone()).await {
-            self.read_file(key_path.into()).await
+            self.read_file(key_path).await
         }
         else {
             let key = Self::gen_new_crypto_key()?;
@@ -94,24 +94,24 @@ impl RaikiriEnvironmentSecrets for RaikiriEnvironment {
 
         let username_hash: String = format!("{:x}", ByteBuf(&openssl::sha::sha256(&username.as_bytes())));
         let secrets_path = &format!("secrets/{username_hash}");
-        self.fs.create_dir(secrets_path).await.expect("error creating secrets directory");
-        let entries = self.read_dir(secrets_path.to_string()).await.expect("error reading secrets directory");
-        let current_key = self.read_file(format!("keys/{username_hash}").into()).await.expect("error reading current key");
+        self.create_dir(secrets_path).await.expect("error creating secrets directory");
+        let entries = self.read_dir(secrets_path).await.expect("error reading secrets directory");
+        let current_key = self.read_file(secrets_path).await.expect("error reading current key");
     
         for entry in entries {
             if self.update_encrypted_secret(entry, &username_hash, &current_key, &new_key).await.is_err() {
-                self.remove_all_new_encrypted(&username_hash).await;
+                self.remove_all_new_encrypted(&username_hash).await?;
                 return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "error updating encrypted secrets")));
             }
         }
     
-        let mut entries = self.read_dir(secrets_path.to_string()).await?;
+        let entries = self.read_dir(secrets_path.to_string()).await?;
     
         for file_name in entries {
             if file_name.ends_with(".new") { continue }
-            let new_content = self.read_file(format!("secrets/{username_hash}/{file_name}.new").into()).await?;
-            self.write_file(format!("secrets/{username_hash}/{file_name}").into(), new_content).await?;
-            self.remove_file(format!("secrets/{username_hash}/{file_name}.new").into()).await?;
+            let new_content = self.read_file(format!("secrets/{username_hash}/{file_name}.new")).await?;
+            self.write_file(format!("secrets/{username_hash}/{file_name}"), new_content).await?;
+            self.remove_file(format!("secrets/{username_hash}/{file_name}.new")).await?;
         }
         self.remove_all_new_encrypted(&username_hash).await?;
     
@@ -119,7 +119,7 @@ impl RaikiriEnvironmentSecrets for RaikiriEnvironment {
     }
 
     async fn update_encrypted_secret(&self, file_name: String, username_hash: &String, current_key: &Vec<u8>, new_key: &Vec<u8>) -> Result<(), ThreadSafeError> {
-        let encrypted = self.read_file(format!("secrets/{username_hash}/{file_name}").into()).await?;
+        let encrypted = self.read_file(format!("secrets/{username_hash}/{file_name}")).await?;
         let decrypted = openssl::symm::decrypt(openssl::symm::Cipher::aes_256_cbc(), &current_key, None, &encrypted)?;
         let encrypted_new = openssl::symm::encrypt(openssl::symm::Cipher::aes_256_cbc(), &new_key, None, &decrypted)?;
         self.write_file(format!("secrets/{file_name}.new"), encrypted_new).await?;
@@ -129,16 +129,14 @@ impl RaikiriEnvironmentSecrets for RaikiriEnvironment {
 
     async fn remove_all_new_encrypted(&self, username: &String) -> Result<(), ThreadSafeError> {
 
-        // let username_hash: String = format!("{:x}", ByteBuf(&openssl::sha::sha256(&username.as_bytes())));
-        // let secrets_path = format!("{raikiri_home}/secrets/{username_hash}");
-        // let mut entries = fs::read_dir(secrets_path).await.expect("error reading secrets directory");
-        // while let Some(entry) = entries.next_entry().await? {
-        //     let path = entry.path();
-        //     let file_name = path.file_name().unwrap().to_str().unwrap();
-        //     if file_name.ends_with(".new") {
-        //         fs::remove_file(path).await?;
-        //     }
-        // }
+        let username_hash: String = format!("{:x}", ByteBuf(&openssl::sha::sha256(&username.as_bytes())));
+        let secrets_path = format!("secrets/{username_hash}");
+        let entries = self.read_dir(secrets_path).await.expect("error reading secrets directory");
+        for file_name in entries {
+            if file_name.ends_with(".new") {
+                self.remove_file(format!("secrets/{username_hash}/{file_name}")).await?;
+            }
+        }
     
         Ok(())
     }

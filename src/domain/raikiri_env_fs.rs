@@ -1,8 +1,6 @@
-use std::sync::Arc;
+use std::path::Path;
 
 use async_trait::async_trait;
-use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
-use vfs::async_vfs::AsyncFileSystem;
 
 use crate::adapters::raikirifs::ThreadSafeError;
 
@@ -10,63 +8,58 @@ use super::raikiri_env::RaikiriEnvironment;
 
 #[async_trait]
 pub trait RaikiriEnvironmentFS {
-    fn fs(&self) -> &Arc<dyn AsyncFileSystem>;
+    fn get_path(&self, path: impl AsRef<Path>) -> String;
     async fn setup_fs(&self) -> Result<(), ThreadSafeError>;
-    async fn read_file(&self, path: String) -> Result<Vec<u8>, ThreadSafeError>;
-    async fn write_file(&self, path: String, content: Vec<u8>) -> Result<(), ThreadSafeError>;
-    async fn remove_file(&self, path: String) -> Result<(), ThreadSafeError>;
-    async fn file_exists(&self, name: String) -> bool;
-    async fn create_dir(&self, name: String) -> Result<(), ThreadSafeError>;
-    async fn read_dir(&self, path: String) -> Result<Vec<String>, ThreadSafeError>;
+    async fn read_file(&self, path: impl AsRef<Path> + Send) -> Result<Vec<u8>, ThreadSafeError>;
+    async fn write_file(&self, path: impl AsRef<Path> + Send, content: Vec<u8>) -> Result<(), ThreadSafeError>;
+    async fn remove_file(&self, path: impl AsRef<Path> + Send) -> Result<(), ThreadSafeError>;
+    async fn file_exists(&self, path: impl AsRef<Path> + Send) -> bool;
+    async fn create_dir(&self, path: impl AsRef<Path> + Send) -> Result<(), ThreadSafeError>;
+    async fn read_dir(&self, path: impl AsRef<Path> + Send) -> Result<Vec<String>, ThreadSafeError>;
 }
 
 #[async_trait]
 impl RaikiriEnvironmentFS for RaikiriEnvironment {
 
-    fn fs(&self) -> &Arc<dyn AsyncFileSystem> { &self.fs }
+    fn get_path(&self, path: impl AsRef<Path>) -> String {
+        let fs_root = &self.fs_root;
+        let mut result = String::new();
+        result.push_str(fs_root);
+        result.push('/');
+        result.push_str(path.as_ref().to_str().unwrap());
+        result
+    }
 
     async fn setup_fs(&self) -> Result<(), ThreadSafeError> {
-        let fs = &self.fs;
-        let username = &self.username;
 
-        fs.create_dir(&format!("/home/{username}/.raikiri")).await?;
-        fs.create_dir(&format!("/home/{username}/.raikiri/components")).await?;
-        fs.create_dir(&format!("/home/{username}/.raikiri/secrets")).await?;
-        fs.create_dir(&format!("/home/{username}/.raikiri/keys")).await?;
+        self.create_dir("").await?;
+        self.create_dir("components").await?;
+        self.create_dir("secrets").await?;
+        self.create_dir("keys").await?;
 
         Ok(())
     }
-    async fn read_file(&self, path: String) -> Result<Vec<u8>, ThreadSafeError> {
-        let mut buf = Vec::new();
-        let username = &self.username;
-        &self.fs.open_file(&format!("/home/{username}/.raikiri/{path}")).await?.read_to_end(&mut buf).await?;
-        Ok(buf)
+    async fn read_file(&self, path: impl AsRef<Path> + Send) -> Result<Vec<u8>, ThreadSafeError> {
+        Ok(tokio::fs::read(self.get_path(path)).await?)
     }
-    async fn write_file(&self, path: String, content: Vec<u8>) -> Result<(), ThreadSafeError> {
-        let username = &self.username;
-        &self.fs.create_file(&format!("/home/{username}/.raikiri/{path}")).await?.write_all(&content).await?;
-        Ok(())
+    async fn write_file(&self, path: impl AsRef<Path> + Send, content: Vec<u8>) -> Result<(), ThreadSafeError> {
+        Ok(tokio::fs::write(self.get_path(path), content).await?)
     }
-    async fn remove_file(&self, path: String) -> Result<(), ThreadSafeError> {
-        let username = &self.username;
-        &self.fs.remove_file(&format!("/home/{username}/.raikiri/{path}")).await?;
-        Ok(())
+    async fn remove_file(&self, path: impl AsRef<Path> + Send) -> Result<(), ThreadSafeError> {
+        Ok(tokio::fs::remove_file(self.get_path(path)).await?)
     }
-    async fn file_exists(&self, path: String) -> bool {
-        let username = &self.username;
-        self.fs.metadata(&format!("/home/{username}/.raikiri/{path}")).await.is_ok()
+    async fn file_exists(&self, path: impl AsRef<Path> + Send) -> bool {
+        tokio::fs::metadata(self.get_path(path)).await.is_ok()
     }
-    async fn create_dir(&self, path: String) -> Result<(), ThreadSafeError> {
-        let username = &self.username;
-        &self.fs.create_dir(&format!("/home/{username}/.raikiri/{path}")).await?;
-        Ok(())
+    async fn create_dir(&self, path: impl AsRef<Path> + Send) -> Result<(), ThreadSafeError> {
+        Ok(tokio::fs::create_dir_all(self.get_path(path)).await?)
     }
-    async fn read_dir(&self, path: String) -> Result<Vec<String>, ThreadSafeError> {
-        let username = &self.username;
-        let mut entries = self.fs.read_dir(&format!("/home/{username}/.raikiri/{path}")).await?;
+    async fn read_dir(&self, path: impl AsRef<Path> + Send) -> Result<Vec<String>, ThreadSafeError> {
+        let fs_root = &self.fs_root;
+        let mut entries = tokio::fs::read_dir(self.get_path(path)).await?;
         let mut result = Vec::new();
-        while let Some(entry) = entries.next().await {
-            result.push(entry);
+        while let Some(entry) = entries.next_entry().await? {
+            result.push(entry.file_name().into_string().unwrap());
         }
         Ok(result)
     }

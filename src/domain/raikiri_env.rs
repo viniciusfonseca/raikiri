@@ -4,16 +4,17 @@ use tokio::net::TcpListener;
 use vfs::async_vfs::{AsyncFileSystem, AsyncPhysicalFS};
 use wasmtime::{Config, Engine};
 
-use crate::{adapters::cache::Cache, ComponentRegistry};
+use crate::{adapters::{self, cache::Cache, component_registry, raikirifs::ThreadSafeError}, ComponentRegistry};
 
 #[derive(Clone)]
 pub struct RaikiriEnvironment {
-    pub fs: Arc<dyn AsyncFileSystem>,
+    pub fs_root: String,
     pub username: String,
     pub wasm_engine: Engine,
-    pub component_registry: Option<ComponentRegistry>,
-    pub secrets_cache: Option<Cache<String, Vec<(String, String)>>>,
-    pub port: Option<u16>,
+    pub component_registry: ComponentRegistry,
+    pub secrets_cache: Cache<String, Vec<(String, String)>>,
+    pub port: u16,
+    pub conf_file: adapters::conf_file::ConfFile
 }
 
 impl RaikiriEnvironment {
@@ -25,16 +26,26 @@ impl RaikiriEnvironment {
         config.async_support(true);
         let wasm_engine = Engine::new(&config).expect("could not create engine");
 
-        let fs = Arc::new(AsyncPhysicalFS::new("/"));
+        let fs_root = format!("/home/{}/.raikiri", whoami::username());
         let username = whoami::username();
         Self {
-            fs,
+            fs_root,
             username,
             wasm_engine,
-            component_registry: None,
-            secrets_cache: None,
-            port: None
+            component_registry: adapters::cache::new_empty_cache(),
+            secrets_cache: adapters::cache::new_empty_cache(),
+            port: 0,
+            conf_file: adapters::conf_file::ConfFile::build().unwrap()
         }
+    }
+
+    pub async fn init<T>(&mut self) -> Result<&mut Self, ThreadSafeError> {
+
+        println!("Registering components...");
+        self.component_registry = component_registry::build_registry().await?;
+        println!("Successfully registered components");
+
+        Ok(self)
     }
 
     pub fn with_username(&mut self, username: String) -> Self {
@@ -42,8 +53,13 @@ impl RaikiriEnvironment {
         self.clone()
     }
 
-    pub fn with_fs(&mut self, fs: Arc<dyn AsyncFileSystem>) -> Self {
-        self.fs = fs;
+    pub fn with_fs_root(&mut self, fs_root: String) -> Self {
+        self.fs_root = fs_root;
+        self.clone()
+    }
+
+    pub fn with_port(&mut self, port: u16) -> Self {
+        self.port = port;
         self.clone()
     }
 

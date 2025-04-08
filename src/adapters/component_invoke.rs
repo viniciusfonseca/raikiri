@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use http::Request;
-use http_body_util::{combinators::BoxBody, BodyExt};
+use http_body_util::BodyExt;
 use hyper::body::{Body, Bytes};
 use wasmtime::{
     component::{Component, Linker},

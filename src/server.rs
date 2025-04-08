@@ -160,9 +160,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_start_server() -> Result<(), wasmtime::Error> {
+
+        let tmp_path = "/tmp/raikiri";
+        tokio::fs::create_dir_all(tmp_path).await.unwrap();
+
         let environment = RaikiriEnvironment::new()
             .with_username("test".to_string())
-            .with_fs(Arc::new(vfs::async_vfs::AsyncMemoryFS::new()));
+            .with_fs_root(tmp_path.to_string());
         environment.setup_fs().await.unwrap();
 
         let server = RaikiriServer::new(environment, "3000".to_string())
