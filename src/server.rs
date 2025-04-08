@@ -158,6 +158,12 @@ mod tests {
     use crate::server::RaikiriServer;
     use raikiri::domain::raikiri_env_fs::RaikiriEnvironmentFS;
 
+    impl Drop for RaikiriServer {
+        fn drop(&mut self) {
+            tokio::fs::remove_dir_all(self.fs_root).unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn test_start_server() -> Result<(), wasmtime::Error> {
 
@@ -182,6 +188,8 @@ mod tests {
             .unwrap();
 
         let res = server.handle_request(request);
+
+        assert!(res.is_ok());
 
         Ok(())
     }

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use tokio::net::TcpListener;
-use vfs::async_vfs::{AsyncFileSystem, AsyncPhysicalFS};
 use wasmtime::{Config, Engine};
 
 use crate::{adapters::{self, cache::Cache, component_registry, raikirifs::ThreadSafeError}, ComponentRegistry};
