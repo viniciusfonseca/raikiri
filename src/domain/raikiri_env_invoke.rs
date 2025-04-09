@@ -1,17 +1,20 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use http::Request;
 use http_body_util::BodyExt;
 use hyper::body::{Body, Bytes};
 use wasmtime::{component::{Component, Linker}, Config, Engine, Store};
-use wasmtime_wasi_http::{bindings::http::types::Scheme, types::IncomingResponse, WasiHttpView};
+use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, types::IncomingResponse, WasiHttpView};
 
-use crate::{build_response, get_raikiri_home, ComponentEvent, RaikiriContext, Wasi};
+use crate::{adapters::{wasi_http_view::stream_from_string, context::RaikiriContext}, ComponentEvent, Wasi};
 
-use super::raikiri_env::RaikiriEnvironment;
+use super::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS};
 
 #[async_trait]
 pub trait RaikiriEnvironmentInvoke {
     async fn invoke_component<T, B>(
+        &self,
         username_component_name: String,
         req: Request<B>,
         wasi: Wasi<T>,
@@ -25,6 +28,7 @@ pub trait RaikiriEnvironmentInvoke {
 impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
     
     async fn invoke_component<T, B>(
+        &self,
         username_component_name: String,
         req: Request<B>,
         wasi: Wasi<T>,
@@ -54,8 +58,7 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
         }
         call_stack.push(username_component_name.clone());
 
-        let raikiri_home = get_raikiri_home().unwrap();
-        let wasm_path = format!("{raikiri_home}/components/{username_component_name}.aot.wasm");
+        let wasm_path = self.get_path(format!("components/{username_component_name}.aot.wasm"));
         let call_stack_len = call_stack.len();
         let component_registry = wasi.data.component_registry();
 
@@ -155,5 +158,19 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
             .await
             .unwrap();
         v
+    }
+}
+
+async fn build_response(status: u16, body: &str) -> IncomingResponse {
+    let resp = http::Response::builder()
+        .status(status)
+        .body(stream_from_string(body.to_string()).await)
+        .map_err(|_| wasmtime_wasi_http::bindings::http::types::ErrorCode::ConnectionReadTimeout)
+        .unwrap()
+        .map(|body| body.map_err(hyper_request_error).boxed());
+    wasmtime_wasi_http::types::IncomingResponse {
+        resp,
+        worker: None,
+        between_bytes_timeout: Duration::new(0, 0),
     }
 }

@@ -1,8 +1,8 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::adapters::{
+use crate::{adapters::{
     cache::{new_empty_cache, Cache}, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_registry, raikirifs::ThreadSafeError, secret_storage, wasi_view::Wasi
-};
+}, domain::raikiri_env::RaikiriEnvironment};
 
 use futures::stream;
 use http::{Request, Response};
@@ -12,7 +12,7 @@ use hyper::{
     server::conn::http1,
     service::service_fn,
 };
-use raikiri::raikiri_env::RaikiriEnvironment;
+use crate::domain::raikiri_env_component::RaikiriComponentStorage;
 use tokio::net::TcpListener;
 use wasmtime::component::Component;
 use wasmtime_wasi_http::bindings::http::types::ErrorCode;
@@ -36,7 +36,7 @@ impl RaikiriServer {
         println!("Raikiri server listening at port {port}");
 
         println!("Registering components...");
-        let component_registry = component_registry::build_registry().await?;
+        let component_registry = environment.build_registry().await?;
         let secrets_cache = new_empty_cache();
         println!("Successfully registered components");
 
@@ -149,14 +149,11 @@ impl RaikiriServer {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
 
     use anyhow::Ok;
     use http::{Request, StatusCode};
-    use raikiri::raikiri_env::RaikiriEnvironment;
 
-    use crate::server::RaikiriServer;
-    use raikiri::domain::raikiri_env_fs::RaikiriEnvironmentFS;
+    use crate::{domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS}, server::RaikiriServer};
 
     impl Drop for RaikiriServer {
         fn drop(&mut self) {

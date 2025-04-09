@@ -1,9 +1,7 @@
 use tokio::sync::mpsc::Sender;
 use wasmtime_wasi_http::{body::HyperOutgoingBody, types::{HostFutureIncomingResponse, OutgoingRequestConfig}, HttpResult};
 
-use crate::ComponentEvent;
-
-use super::component_registry::ComponentRegistry;
+use crate::{domain::raikiri_env_component::ComponentRegistry, ComponentEvent};
 
 pub trait RaikiriContext {
     fn call_stack(&self) -> &Vec<String>;

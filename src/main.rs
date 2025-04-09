@@ -1,7 +1,7 @@
 use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
+use domain::raikiri_env::RaikiriEnvironment;
 use http_body_util::BodyExt;
-use raikiri::raikiri_env::RaikiriEnvironment;
 use server::RaikiriServer;
 use types::InvokeRequest;
 
@@ -9,6 +9,7 @@ mod server;
 mod adapters;
 mod types;
 mod sdk;
+mod domain;
 
 #[derive(Debug, Parser)]
 #[command(name = "raikiri")]

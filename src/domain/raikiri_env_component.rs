@@ -1,12 +1,14 @@
 use async_trait::async_trait;
 use wasmtime::{component::Component, Config, Engine};
 
-use crate::{adapters::raikirifs::ThreadSafeError, new_empty_cache, ComponentRegistry};
+use crate::{adapters::{cache::Cache, raikirifs::ThreadSafeError}, new_empty_cache};
 
 use super::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS};
 
+pub type ComponentRegistry = Cache<String, Component>;
+
 #[async_trait]
-trait RaikiriComponentStorage {
+pub trait RaikiriComponentStorage {
     async fn add_component(&self, user: String, name: String, path: String) -> Result<(), ThreadSafeError>;
     async fn get_component(&self, user: String, name: String) -> Result<Component, ThreadSafeError>;
     async fn remove_component(&self, user: String, name: String) -> Result<(), ThreadSafeError>;
@@ -44,7 +46,7 @@ impl RaikiriComponentStorage for RaikiriEnvironment {
     
         for filename in entries {
             component_registry.get_entry_by_key(filename.clone(), || {
-                unsafe { Component::deserialize_file(&engine, filename.clone()).unwrap() }
+                unsafe { Component::deserialize_file(&engine, format!("{}/components/{}", self.fs_root, filename.clone())).unwrap() }
             }).await;
             println!("successfully registered {filename}");
         }

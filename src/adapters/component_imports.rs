@@ -4,7 +4,9 @@ use hyper::body::{Bytes, Frame};
 use tokio::sync::mpsc::Sender;
 use wasmtime_wasi_http::types::HostFutureIncomingResponse;
 
-use super::{cache::Cache, component_events::ComponentEvent, component_registry::ComponentRegistry, context::RaikiriContext, secret_storage, wasi_view::Wasi};
+use crate::domain::raikiri_env_component::ComponentRegistry;
+
+use super::{cache::Cache, component_events::ComponentEvent, context::RaikiriContext, secret_storage, wasi_view::Wasi};
 
 pub struct ComponentImports {
     pub call_stack: Vec<String>,

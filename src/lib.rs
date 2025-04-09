@@ -9,7 +9,6 @@ pub use adapters::component_imports::ComponentImports;
 pub use adapters::component_invoke::build_response;
 pub use adapters::component_invoke::invoke_component;
 pub use adapters::component_registry::build_registry;
-pub use adapters::component_registry::ComponentRegistry;
 pub use adapters::component_storage::add_component;
 pub use adapters::component_storage::add_component_bytes;
 pub use adapters::component_storage::remove_component;

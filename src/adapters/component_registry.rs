@@ -1,10 +1,9 @@
 use wasmtime::{component::Component, Config, Engine};
 
-use crate::{adapters::cache::{new_empty_cache, Cache}, adapters::raikirifs::get_raikiri_home};
+use crate::{adapters::{cache::{new_empty_cache, Cache}, raikirifs::get_raikiri_home}, domain::raikiri_env_component::ComponentRegistry};
 
 use super::raikirifs::ThreadSafeError;
 
-pub type ComponentRegistry = Cache<String, Component>;
 
 pub async fn build_registry() -> Result<ComponentRegistry, ThreadSafeError> {
     let component_registry = new_empty_cache();
