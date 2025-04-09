@@ -15,7 +15,16 @@ pub struct ConfFile {
 
 impl ConfFile {
     pub fn build() -> Result<ConfFile, ThreadSafeError> {
-        let content = fs::read_to_string(CONF_FILE_PATH).unwrap();
+        let cwd = std::env::current_dir().unwrap();
+        // concat cwd and conf file path
+        let path = cwd.join(CONF_FILE_PATH);
+        let content = match fs::read_to_string(path) {
+            Ok(content) => content,
+            Err(_) => return Ok(Self {
+                components: HashMap::new(),
+                run_confs: HashMap::new(),
+            })
+        };
         let content = yaml_rust2::YamlLoader::load_from_str(&content)?;
         let content = content
             .get(0).unwrap()

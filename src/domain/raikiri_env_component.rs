@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use wasmtime::component::Component;
+use wasmtime::{component::Component, Config, Engine};
 
-use crate::adapters::raikirifs::ThreadSafeError;
+use crate::{adapters::raikirifs::ThreadSafeError, new_empty_cache, ComponentRegistry};
 
 use super::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS};
 
@@ -10,6 +10,7 @@ trait RaikiriComponentStorage {
     async fn add_component(&self, user: String, name: String, path: String) -> Result<(), ThreadSafeError>;
     async fn get_component(&self, user: String, name: String) -> Result<Component, ThreadSafeError>;
     async fn remove_component(&self, user: String, name: String) -> Result<(), ThreadSafeError>;
+    async fn build_registry(&self) -> Result<ComponentRegistry, ThreadSafeError>;
 }
 
 #[async_trait]
@@ -29,4 +30,26 @@ impl RaikiriComponentStorage for RaikiriEnvironment {
     async fn remove_component(&self, user: String, name: String) -> Result<(), ThreadSafeError> {
         self.remove_file(format!("components/{user}.{name}.aot.wasm")).await
     }
+
+    async fn build_registry(&self) -> Result<ComponentRegistry, ThreadSafeError> {
+        let component_registry = new_empty_cache();
+    
+        let entries = self.read_dir("components").await?;
+        let mut config = Config::new();
+        config.cache_config_load_default()?;
+        config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
+        config.wasm_component_model(true);
+        config.async_support(true);
+        let engine = Engine::new(&config)?;
+    
+        for filename in entries {
+            component_registry.get_entry_by_key(filename.clone(), || {
+                unsafe { Component::deserialize_file(&engine, filename.clone()).unwrap() }
+            }).await;
+            println!("successfully registered {filename}");
+        }
+    
+        Ok(component_registry)
+    }
+    
 }

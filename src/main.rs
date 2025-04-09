@@ -101,7 +101,7 @@ async fn main() -> Result<(), ThreadSafeError> {
                 ServerSubcommand::Start { port } => {
                     println!("starting Raikiri server at port: {port}");
                     let env = RaikiriEnvironment::new();
-                    let server = RaikiriServer::new(env, port).await?;
+                    let server = RaikiriServer::new(env, port.parse()?).await?;
                     server.run().await?;
                 }
             }

@@ -28,10 +28,10 @@ pub struct RaikiriServer {
 impl RaikiriServer {
     pub async fn new(
         environment: RaikiriEnvironment,
-        port: String,
+        port: u16,
     ) -> Result<Self, ThreadSafeError> {
         
-        let addr = SocketAddr::from(([127, 0, 0, 1], port.parse()?));
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let listener = Arc::new(TcpListener::bind(addr).await?);
         println!("Raikiri server listening at port {port}");
 
@@ -152,7 +152,7 @@ mod tests {
     use std::sync::Arc;
 
     use anyhow::Ok;
-    use http::Request;
+    use http::{Request, StatusCode};
     use raikiri::raikiri_env::RaikiriEnvironment;
 
     use crate::server::RaikiriServer;
@@ -160,7 +160,7 @@ mod tests {
 
     impl Drop for RaikiriServer {
         fn drop(&mut self) {
-            tokio::fs::remove_dir_all(self.fs_root).unwrap();
+            std::fs::remove_dir_all(self.environment.clone().fs_root).unwrap();
         }
     }
 
@@ -175,7 +175,7 @@ mod tests {
             .with_fs_root(tmp_path.to_string());
         environment.setup_fs().await.unwrap();
 
-        let server = RaikiriServer::new(environment, "3000".to_string())
+        let server = RaikiriServer::new(environment, 0)
             .await
             .unwrap();
 
@@ -187,9 +187,9 @@ mod tests {
             .body(RaikiriServer::response_body("Hello World").await)
             .unwrap();
 
-        let res = server.handle_request(request);
+        let res = server.handle_request(request).await;
 
-        assert!(res.is_ok());
+        assert_eq!(res.unwrap().status(), StatusCode::NOT_FOUND);
 
         Ok(())
     }
