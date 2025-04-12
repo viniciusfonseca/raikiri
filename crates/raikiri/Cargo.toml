@@ -1,0 +1,42 @@
+[package]
+name = "raikiri"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.86"
+clap = { version = "4.5.7", features = ["derive"] }
+clap_derive = { version = "4.5.5" }
+chrono = "0.4.33"
+futures = "0.3.30"
+homedir = "0.2.1"
+http = "1.1.0"
+http-body-util = "0.1.2"
+hyper = { version = "1.4.1", features = ["full"] }
+regex = "1.10.5"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+tokio = { version = "1.38.0", features = ["full"] }
+wasmtime = "31.0.0"
+wasmtime-wasi = "31.0.0"
+wasmtime-wasi-http = "31.0.0"
+whoami = "1.5.1"
+wit-bindgen = "0.27.0"
+yaml-rust2 = "0.9.0"
+openssl = { version = "0.10.68", features = ["vendored"] }
+reqwest = { version = "0.12.9", features = ["multipart"] }
+hashlink = "0.9.1"
+async-trait = "0.1.88"
+
+[dev-dependencies]
+test-programs-artifacts = { workspace = true }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "raikiri"
+path = "src/main.rs"

@@ -26,11 +26,7 @@ impl <T> Wasi<T> where T: Send + Clone + RaikiriContext {
     }
 }
 
-impl <T> WasiView for Wasi<T> where T: Send + Clone + RaikiriContext {
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.table
-    }
-
+impl <T> WasiView for Wasi<T> where T: Send + Clone + RaikiriContext + 'static {
     fn ctx(&mut self) -> &mut WasiCtx {
         &mut self.ctx
     }

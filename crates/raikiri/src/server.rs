@@ -188,6 +188,8 @@ mod tests {
 
         assert_eq!(res.unwrap().status(), StatusCode::NOT_FOUND);
 
+        // test_programs_artifacts::API_PROXY_COMPONENT;
+
         Ok(())
     }
 }
