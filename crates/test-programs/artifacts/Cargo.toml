@@ -1,0 +1,16 @@
+[package]
+name = "test-programs-artifacts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasmtime = { version = "31.0.0", features = ['incremental-cache', 'cranelift', 'component-model'] }
+
+[build-dependencies]
+cargo_metadata = "0.19.2"
+wit-component = "0.228.0"
+heck = "0.5.0"
+
+
+

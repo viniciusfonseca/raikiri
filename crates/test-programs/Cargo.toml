@@ -1,0 +1,8 @@
+[package]
+name = "test-programs"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+wit-bindgen = "0.41.0"
+waki = "0.3.1"
