@@ -9,9 +9,9 @@ use tokio::net::TcpListener;
 use wasmtime_wasi_http::{bindings::http::types::ErrorCode, io::TokioIo};
 
 
-use crate::{adapters::{component_invoke, component_registry, raikirifs::ThreadSafeError, secret_storage}, default_event_handler, new_empty_cache, ComponentEvent, ComponentImports, Wasi};
+use crate::{adapters::{raikirifs::ThreadSafeError, secret_storage}, default_event_handler, ComponentEvent, ComponentImports, Wasi};
 
-use super::raikiri_env::RaikiriEnvironment;
+use super::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke};
 
 #[async_trait]
 pub trait RaikiriEnvironmentServer {
@@ -98,11 +98,9 @@ async fn handle_request<B>(_self: RaikiriEnvironment, request: Request<B>) ->
                 let secrets = secrets_entry.read().await;
                 let component_imports = ComponentImports {
                     call_stack: Vec::new(),
-                    component_registry: _self.component_registry.clone(),
-                    event_sender: tx,
-                    secrets_cache: _self.secrets_cache.clone(),
+                    environment: _self.clone(),
                 };
-                let response = component_invoke::invoke_component(
+                let response = _self.invoke_component(
                     username_component_name.clone(),
                     request,
                     Wasi::new(component_imports, secrets.to_vec()),

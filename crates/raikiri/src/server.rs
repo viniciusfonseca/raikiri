@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use crate::{adapters::{
-    cache::{new_empty_cache, Cache}, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_registry, raikirifs::ThreadSafeError, secret_storage, wasi_view::Wasi
+    cache::{new_empty_cache, Cache}, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, raikirifs::ThreadSafeError, secret_storage, wasi_view::Wasi
 }, domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke}};
 
 use futures::stream;
@@ -13,7 +13,7 @@ use hyper::{
     service::service_fn,
 };
 use crate::domain::raikiri_env_component::RaikiriComponentStorage;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::Mutex};
 use wasmtime::component::Component;
 use wasmtime_wasi_http::bindings::http::types::ErrorCode;
 use wasmtime_wasi_http::io::TokioIo;
@@ -21,9 +21,7 @@ use wasmtime_wasi_http::io::TokioIo;
 #[derive(Clone)]
 pub struct RaikiriServer {
     environment: RaikiriEnvironment,
-    component_registry: Cache<String, Component>,
-    secrets_cache: Cache<String, Vec<(String, String)>>,
-    listener: Arc<TcpListener>,
+    listener: Arc<TcpListener>
 }
 impl RaikiriServer {
     pub async fn new(
@@ -35,15 +33,10 @@ impl RaikiriServer {
         let listener = Arc::new(TcpListener::bind(addr).await?);
         println!("Raikiri server listening at port {port}");
 
-        println!("Registering components...");
-        let component_registry = environment.build_registry().await?;
-        let secrets_cache = new_empty_cache();
-        println!("Successfully registered components");
-
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
+        
         Ok(Self {
             environment,
-            component_registry,
-            secrets_cache,
             listener,
         })
     }
@@ -100,13 +93,8 @@ impl RaikiriServer {
                     .unwrap()
                     .to_string();
 
-                let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
-                tokio::spawn(async move {
-                    while let Some(message) = rx.recv().await {
-                        default_event_handler(message)
-                    }
-                });
-                let secrets_entry = &self
+                
+                let secrets_entry = &self.environment
                     .secrets_cache
                     .get_entry_by_key_async_build(username_component_name.clone(), async {
                         secret_storage::get_component_secrets(username_component_name.clone())
@@ -117,9 +105,7 @@ impl RaikiriServer {
                 let secrets = secrets_entry.read().await;
                 let component_imports = ComponentImports {
                     call_stack: Vec::new(),
-                    component_registry: self.component_registry.clone(),
-                    event_sender: tx,
-                    secrets_cache: self.secrets_cache.clone(),
+                    environment: self.environment.clone(),
                 };
                 let response = self.environment.invoke_component(
                     username_component_name.clone(),
@@ -216,7 +202,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_invoke_hello() -> Result<(), wasmtime::Error> {
+    async fn test_invoke_api_proxy() -> Result<(), wasmtime::Error> {
 
         let tmp_path = "/tmp/raikiri-1";
         tokio::fs::create_dir_all(tmp_path).await.unwrap();
@@ -263,6 +249,58 @@ mod tests {
 
         assert_eq!(parts.status, StatusCode::OK);
         assert_eq!(body, "hello, world!");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_invoke_hello() -> Result<(), wasmtime::Error> {
+
+        let tmp_path = "/tmp/raikiri-2";
+        tokio::fs::create_dir_all(tmp_path).await.unwrap();
+
+        let environment = RaikiriEnvironment::new()
+            .with_username("test".to_string())
+            .with_fs_root(tmp_path.to_string());
+        environment.setup_fs().await.unwrap();
+
+        let server = RaikiriServer::new(environment, 0)
+            .await
+            .unwrap();
+
+        // put component
+        let component = tokio::fs::read(test_programs_artifacts::API_RAIKIRI_HELLO_COMPONENT).await.unwrap();
+        let body = RaikiriServer::response_body_bytes(component).await;
+        let request = Request::builder()
+            .uri("/")
+            .method("POST")
+            .header("Platform-Command", "Put-Component")
+            .header("Component-Id", "hello")
+            .body(body)
+            .unwrap();
+
+        let res = server.handle_request(request).await;
+
+        assert_eq!(res.unwrap().status(), StatusCode::OK);
+
+        // send command to invoke component
+        let request = Request::builder()
+            .uri("https://localhost:8080")
+            .method("GET")
+            .header("Platform-Command", "Invoke-Component")
+            .header("Component-Id", "test.hello")
+            .header("Host", "localhost:8080")
+            .body(RaikiriServer::response_body("").await)
+            .unwrap();
+
+        let res = server.handle_request(request).await;
+        let (parts, body) = res.unwrap().into_parts();
+
+        let body = body.collect().await.unwrap();
+        let body = String::from_utf8(body.to_bytes().to_vec()).unwrap();
+
+        assert_eq!(parts.status, StatusCode::OK);
+        assert_eq!(body, "Hello World!");
 
         Ok(())
     }

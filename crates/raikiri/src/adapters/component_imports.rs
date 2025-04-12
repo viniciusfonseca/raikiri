@@ -1,29 +1,16 @@
 use futures::stream;
 use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
 use hyper::body::{Bytes, Frame};
-use tokio::sync::mpsc::Sender;
 use wasmtime_wasi_http::types::HostFutureIncomingResponse;
 
-use crate::domain::raikiri_env_component::ComponentRegistry;
+use crate::domain::{raikiri_env_invoke::RaikiriEnvironmentInvoke, raikiri_env::RaikiriEnvironment};
 
-use super::{cache::Cache, component_events::ComponentEvent, context::RaikiriContext, secret_storage, wasi_view::Wasi};
+use super::{context::RaikiriContext, secret_storage, wasi_view::Wasi};
 
+#[derive(Clone)]
 pub struct ComponentImports {
     pub call_stack: Vec<String>,
-    pub event_sender: Sender<ComponentEvent>,
-    pub component_registry: ComponentRegistry,
-    pub secrets_cache: Cache<String, Vec<(String, String)>>
-}
-
-impl Clone for ComponentImports {
-    fn clone(&self) -> Self {
-        Self {
-            call_stack: self.call_stack.clone(),
-            event_sender: self.event_sender.clone(),
-            component_registry: self.component_registry.clone(),
-            secrets_cache: self.secrets_cache.clone()
-        }
-    }
+    pub environment: RaikiriEnvironment,
 }
 
 impl RaikiriContext for ComponentImports {
@@ -31,12 +18,8 @@ impl RaikiriContext for ComponentImports {
         &self.call_stack
     }
 
-    fn event_sender(&self) -> &Sender<ComponentEvent> {
-        &self.event_sender
-    }
-
-    fn component_registry(&self) -> &ComponentRegistry {
-        &self.component_registry
+    fn environment(&self) -> &RaikiriEnvironment {
+        &self.environment
     }
     
     fn handle_http(&self, request: hyper::Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
@@ -57,11 +40,12 @@ impl RaikiriContext for ComponentImports {
                         .map(|chunk| Ok::<_, hyper::Error>(Frame::data(Bytes::copy_from_slice(chunk))))
                         .collect::<Vec<_>>()
                 )))).unwrap();
-                let secrets_entry = &data.secrets_cache.get_entry_by_key_async_build(username_component_name.clone(), async {
+                let secrets_entry = &data.environment.secrets_cache.get_entry_by_key_async_build(username_component_name.clone(), async {
                     secret_storage::get_component_secrets(username_component_name.clone()).await.unwrap_or_else(|_| Vec::new())
                 }).await;
                 let secrets = secrets_entry.read().await;
-                Ok(super::component_invoke::invoke_component(username_component_name, request, Wasi::new(data, secrets.to_vec())).await)
+                let wasi = Wasi::new(data.clone(), secrets.to_vec());
+                Ok(data.environment.invoke_component(username_component_name, request, wasi).await)
             });
             return Ok(HostFutureIncomingResponse::Pending(future_handle))
         }

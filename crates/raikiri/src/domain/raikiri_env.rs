@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
 use wasmtime::{Config, Engine};
 
-use crate::adapters::{self, cache::Cache, component_registry, raikirifs::ThreadSafeError};
+use crate::{adapters::{self, cache::Cache, raikirifs::ThreadSafeError}, domain::raikiri_env_component::RaikiriComponentStorage, ComponentEvent};
 
 use super::raikiri_env_component::ComponentRegistry;
 
@@ -12,7 +15,10 @@ pub struct RaikiriEnvironment {
     pub component_registry: ComponentRegistry,
     pub secrets_cache: Cache<String, Vec<(String, String)>>,
     pub port: u16,
-    pub conf_file: adapters::conf_file::ConfFile
+    pub conf_file: adapters::conf_file::ConfFile,
+    pub event_sender: tokio::sync::mpsc::Sender<ComponentEvent>,
+    pub event_receiver: Arc<Mutex<tokio::sync::mpsc::Receiver<ComponentEvent>>>,
+    pub event_handler: Option<fn(ComponentEvent) -> ()>
 }
 
 impl RaikiriEnvironment {
@@ -26,6 +32,10 @@ impl RaikiriEnvironment {
 
         let fs_root = format!("/home/{}/.raikiri", whoami::username());
         let username = whoami::username();
+
+        let (event_sender, event_receiver) = tokio::sync::mpsc::channel(0xFFFF);
+        let event_receiver = Arc::new(Mutex::new(event_receiver));
+
         Self {
             fs_root,
             username,
@@ -33,14 +43,17 @@ impl RaikiriEnvironment {
             component_registry: adapters::cache::new_empty_cache(),
             secrets_cache: adapters::cache::new_empty_cache(),
             port: 0,
-            conf_file: adapters::conf_file::ConfFile::build().unwrap()
+            conf_file: adapters::conf_file::ConfFile::build().unwrap(),
+            event_sender,
+            event_receiver,
+            event_handler: None
         }
     }
 
     pub async fn init<T>(&mut self) -> Result<&mut Self, ThreadSafeError> {
 
         println!("Registering components...");
-        self.component_registry = component_registry::build_registry().await?;
+        self.component_registry = self.build_registry().await?;
         println!("Successfully registered components");
 
         Ok(self)
@@ -59,6 +72,11 @@ impl RaikiriEnvironment {
     pub fn with_port(&mut self, port: u16) -> Self {
         self.port = port;
         self.clone()
+    }
+
+    pub fn with_event_handler(&mut self, handler: fn(ComponentEvent) -> ()) -> &mut Self {
+        self.event_handler = Some(handler);
+        self
     }
 
 }

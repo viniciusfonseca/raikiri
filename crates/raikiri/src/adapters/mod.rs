@@ -1,8 +1,6 @@
 pub mod cache;
 pub mod component_events;
 pub mod component_imports;
-pub mod component_invoke;
-pub mod component_registry;
 pub mod component_storage;
 pub mod context;
 pub mod raikirifs;

@@ -42,18 +42,18 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
         let mut call_stack = data.call_stack().clone();
 
         if call_stack.len() > 10 {
-            data.event_sender()
-                .send(ComponentEvent::Execution {
-                    stdout: None,
-                    username_component_name,
-                    start,
-                    duration: chrono::Utc::now()
-                        .signed_duration_since(start)
-                        .num_milliseconds(),
-                    status: 400,
-                })
-                .await
-                .unwrap();
+            data.environment().event_sender.send(ComponentEvent::Execution {
+                stdout: None,
+                username_component_name,
+                start,
+                duration: chrono::Utc::now()
+                    .signed_duration_since(start)
+                    .num_milliseconds(),
+                status: 400,
+            })
+            .await
+            .unwrap();
+
             return Ok(build_response(400, "CALL STACK LIMIT SIZE REACHED").await);
         }
         call_stack.push(username_component_name.clone());
@@ -61,7 +61,7 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
         let fs_path = format!("components/{username_component_name}.aot.wasm");
         let wasm_path = self.get_path(fs_path.clone());
         let call_stack_len = call_stack.len();
-        let component_registry = wasi.data.component_registry();
+        let component_registry = &wasi.data.environment().component_registry;
 
         if !self.file_exists(fs_path.clone()).await {
             return Ok(build_response(
@@ -138,7 +138,7 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
         }
         .expect("wasm never called set-response-outparam");
         let status;
-        let v = match resp {
+        let result = match resp {
             Err(e) => {
                 eprintln!("{e}");
                 status = 500;
@@ -153,19 +153,18 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
                 .await)
             }
         };
-        data.event_sender()
-            .send(ComponentEvent::Execution {
-                stdout: Some(stdout),
-                username_component_name,
-                start,
-                duration: chrono::Utc::now()
-                    .signed_duration_since(start)
-                    .num_milliseconds(),
-                status,
-            })
-            .await
-            .unwrap();
-        v
+        data.environment().event_sender.send(ComponentEvent::Execution {
+            stdout: Some(stdout),
+            username_component_name,
+            start,
+            duration: chrono::Utc::now()
+                .signed_duration_since(start)
+                .num_milliseconds(),
+            status,
+        })
+        .await
+        .unwrap();
+        result
     }
 }
 

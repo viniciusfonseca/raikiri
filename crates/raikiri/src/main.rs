@@ -1,9 +1,10 @@
-use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
+use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
-use domain::raikiri_env::RaikiriEnvironment;
+use domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke};
 use http_body_util::BodyExt;
 use server::RaikiriServer;
 use types::InvokeRequest;
+use wasmtime_wasi::bindings::cli::environment;
 
 mod server;
 mod adapters;
@@ -130,14 +131,13 @@ async fn main() -> Result<(), ThreadSafeError> {
                         }
                     });
                     let component_registry = new_empty_cache();
+                    let environment = RaikiriEnvironment::new();
                     let component_imports = ComponentImports {
                         call_stack: Vec::new(),
-                        component_registry,
-                        event_sender: tx,
-                        secrets_cache: new_empty_cache()
+                        environment: RaikiriEnvironment::new(),
                     };
                     let secrets = secret_storage::get_component_secrets(username_component_name.clone()).await?;
-                    let response = component_invoke::invoke_component(username_component_name.clone(), request.into(), Wasi::new(component_imports, secrets)).await?;
+                    let response = environment.invoke_component(username_component_name.clone(), request.into(), Wasi::new(component_imports, secrets)).await?;
                     println!("Successfully invoked {username_component_name}");
                     let resp_body = BodyExt::collect(response.resp.into_body()).await?.to_bytes().to_vec();
                     println!("Response: {}", String::from_utf8(resp_body)?);
