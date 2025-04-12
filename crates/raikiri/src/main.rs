@@ -4,7 +4,6 @@ use domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnviron
 use http_body_util::BodyExt;
 use server::RaikiriServer;
 use types::InvokeRequest;
-use wasmtime_wasi::bindings::cli::environment;
 
 mod server;
 mod adapters;
@@ -130,7 +129,6 @@ async fn main() -> Result<(), ThreadSafeError> {
                             default_event_handler(message)
                         }
                     });
-                    let component_registry = new_empty_cache();
                     let environment = RaikiriEnvironment::new();
                     let component_imports = ComponentImports {
                         call_stack: Vec::new(),
