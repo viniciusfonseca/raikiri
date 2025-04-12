@@ -2,11 +2,11 @@ use std::{net::SocketAddr, sync::Arc};
 
 use crate::{adapters::{
     cache::{new_empty_cache, Cache}, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_invoke, component_registry, raikirifs::ThreadSafeError, secret_storage, wasi_view::Wasi
-}, domain::raikiri_env::RaikiriEnvironment};
+}, domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke}};
 
 use futures::stream;
 use http::{Request, Response};
-use http_body_util::{combinators::BoxBody, StreamBody};
+use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
 use hyper::{
     body::{Body, Bytes, Frame},
     server::conn::http1,
@@ -80,6 +80,17 @@ impl RaikiriServer {
             .unwrap();
 
         match command {
+            "Put-Component" => {
+                let component_name = request.headers().get("Component-Id").unwrap()
+                    .to_str().unwrap().to_string();
+                let component_bytes = BoxBody::new(request.into_body()).collect().await.unwrap().to_bytes().to_vec();
+                self.environment.add_component(self.environment.username.clone(), component_name, component_bytes).await.unwrap();
+                Ok(Response::builder()
+                    .status(200)
+                    .body(Self::response_body("").await)
+                    .map_err(|_| ErrorCode::ConnectionReadTimeout)
+                    .unwrap())
+            }
             "Invoke-Component" => {
                 let username_component_name = request
                     .headers()
@@ -110,7 +121,7 @@ impl RaikiriServer {
                     event_sender: tx,
                     secrets_cache: self.secrets_cache.clone(),
                 };
-                let response = component_invoke::invoke_component(
+                let response = self.environment.invoke_component(
                     username_component_name.clone(),
                     request,
                     Wasi::new(component_imports, secrets.to_vec()),
@@ -145,6 +156,18 @@ impl RaikiriServer {
                 .collect::<Vec<_>>(),
         )))
     }
+
+    #[allow(dead_code)]
+    pub async fn response_body_bytes<E>(body: Vec<u8>) -> BoxBody<Bytes, E>
+    where
+        E: Send + Sync + 'static,
+    {
+        BoxBody::new(StreamBody::new(stream::iter(
+            body.chunks(16 * 1024)
+                .map(|chunk| Ok::<_, E>(Frame::data(Bytes::copy_from_slice(chunk))))
+                .collect::<Vec<_>>(),
+        )))
+    }
 }
 
 #[cfg(test)]
@@ -152,6 +175,7 @@ mod tests {
 
     use anyhow::Ok;
     use http::{Request, StatusCode};
+    use http_body_util::BodyExt;
 
     use crate::{domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS}, server::RaikiriServer};
 
@@ -164,7 +188,7 @@ mod tests {
     #[tokio::test]
     async fn test_start_server() -> Result<(), wasmtime::Error> {
 
-        let tmp_path = "/tmp/raikiri";
+        let tmp_path = "/tmp/raikiri-0";
         tokio::fs::create_dir_all(tmp_path).await.unwrap();
 
         let environment = RaikiriEnvironment::new()
@@ -180,7 +204,7 @@ mod tests {
             .uri("/")
             .method("GET")
             .header("Platform-Command", "Invoke-Component")
-            .header("Component-Id", "test.hello")
+            .header("Component-Id", "test404.hello")
             .body(RaikiriServer::response_body("Hello World").await)
             .unwrap();
 
@@ -188,7 +212,57 @@ mod tests {
 
         assert_eq!(res.unwrap().status(), StatusCode::NOT_FOUND);
 
-        // test_programs_artifacts::API_PROXY_COMPONENT;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_invoke_hello() -> Result<(), wasmtime::Error> {
+
+        let tmp_path = "/tmp/raikiri-1";
+        tokio::fs::create_dir_all(tmp_path).await.unwrap();
+
+        let environment = RaikiriEnvironment::new()
+            .with_username("test".to_string())
+            .with_fs_root(tmp_path.to_string());
+        environment.setup_fs().await.unwrap();
+
+        let server = RaikiriServer::new(environment, 0)
+            .await
+            .unwrap();
+
+        // put component
+        let component = tokio::fs::read(test_programs_artifacts::API_PROXY_COMPONENT).await.unwrap();
+        let body = RaikiriServer::response_body_bytes(component).await;
+        let request = Request::builder()
+            .uri("/")
+            .method("POST")
+            .header("Platform-Command", "Put-Component")
+            .header("Component-Id", "hello")
+            .body(body)
+            .unwrap();
+
+        let res = server.handle_request(request).await;
+
+        assert_eq!(res.unwrap().status(), StatusCode::OK);
+
+        // send command to invoke component
+        let request = Request::builder()
+            .uri("https://localhost:8080")
+            .method("GET")
+            .header("Platform-Command", "Invoke-Component")
+            .header("Component-Id", "test.hello")
+            .header("Host", "localhost:8080")
+            .body(RaikiriServer::response_body("").await)
+            .unwrap();
+
+        let res = server.handle_request(request).await;
+        let (parts, body) = res.unwrap().into_parts();
+
+        let body = body.collect().await.unwrap();
+        let body = String::from_utf8(body.to_bytes().to_vec()).unwrap();
+
+        assert_eq!(parts.status, StatusCode::OK);
+        assert_eq!(body, "hello, world!");
 
         Ok(())
     }

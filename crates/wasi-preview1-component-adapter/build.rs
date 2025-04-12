@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let out_dir = PathBuf::from("/tmp");
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     let wasm = build_raw_intrinsics();
     let archive = build_archive(&wasm);

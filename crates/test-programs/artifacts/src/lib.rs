@@ -1,4 +1,4 @@
-include!("/tmp/gen.rs");
+include!(concat!(env!("OUT_DIR"), "/gen.rs"));
 
 use std::borrow::Cow;
 use std::collections::HashMap;

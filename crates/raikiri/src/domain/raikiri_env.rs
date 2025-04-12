@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
-use tokio::net::TcpListener;
 use wasmtime::{Config, Engine};
 
-use crate::{adapters::{self, cache::Cache, component_registry, raikirifs::ThreadSafeError}};
+use crate::adapters::{self, cache::Cache, component_registry, raikirifs::ThreadSafeError};
 
 use super::raikiri_env_component::ComponentRegistry;
 

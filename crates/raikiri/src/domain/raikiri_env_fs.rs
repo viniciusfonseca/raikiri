@@ -55,7 +55,6 @@ impl RaikiriEnvironmentFS for RaikiriEnvironment {
         Ok(tokio::fs::create_dir_all(self.get_path(path)).await?)
     }
     async fn read_dir(&self, path: impl AsRef<Path> + Send) -> Result<Vec<String>, ThreadSafeError> {
-        let fs_root = &self.fs_root;
         let mut entries = tokio::fs::read_dir(self.get_path(path)).await?;
         let mut result = Vec::new();
         while let Some(entry) = entries.next_entry().await? {

@@ -12,7 +12,7 @@ fn main() {
 }
 
 fn build_and_generate_tests() {
-    let out_dir = PathBuf::from("/tmp");
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     let reactor_adapter = build_adapter(&out_dir, "reactor", &[]);
     let command_adapter = build_adapter(
@@ -181,7 +181,7 @@ fn compile_component(wasm: &Path, adapter: &[u8]) -> PathBuf {
 }
 
 fn build_debug_info_assets(paths_code: &mut String) {
-    const ASSETS_REL_SRC_DIR: &'static str = "../../testsuite";
+    const ASSETS_REL_SRC_DIR: &'static str = "../../testsuite/target";
     println!("cargo:rerun-if-changed={ASSETS_REL_SRC_DIR}");
 
     // There are three types of assets at this time:
@@ -191,7 +191,7 @@ fn build_debug_info_assets(paths_code: &mut String) {
     // 3. Explanatory - things like WAT for a binary we don't
     //    know how to compile (yet). They are ignored.
     //
-    let out_dir = PathBuf::from("/tmp");
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let assets_src_dir = fs::canonicalize(ASSETS_REL_SRC_DIR).unwrap();
     let binary_assets = [
         "dead_code.wasm",

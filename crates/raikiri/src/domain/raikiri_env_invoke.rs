@@ -58,9 +58,17 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
         }
         call_stack.push(username_component_name.clone());
 
-        let wasm_path = self.get_path(format!("components/{username_component_name}.aot.wasm"));
+        let fs_path = format!("components/{username_component_name}.aot.wasm");
+        let wasm_path = self.get_path(fs_path.clone());
         let call_stack_len = call_stack.len();
         let component_registry = wasi.data.component_registry();
+
+        if !self.file_exists(fs_path.clone()).await {
+            return Ok(build_response(
+                404,
+                format!("Component {username_component_name} not found").as_str(),
+            ).await)
+        }
 
         let component_entry = component_registry
             .get_entry_by_key(username_component_name.clone(), || {
