@@ -1,11 +1,9 @@
 use adapters::{cache::new_empty_cache, component_imports::ComponentImports, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
-use domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke};
+use domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke, raikiri_env_server::RaikiriEnvironmentServer};
 use http_body_util::BodyExt;
-use server::RaikiriServer;
 use types::InvokeRequest;
 
-mod server;
 mod adapters;
 mod types;
 mod sdk;
@@ -102,8 +100,7 @@ async fn main() -> Result<(), ThreadSafeError> {
                 ServerSubcommand::Start { port } => {
                     println!("starting Raikiri server at port: {port}");
                     let env = RaikiriEnvironment::new();
-                    let server = RaikiriServer::new(env, port.parse()?).await?;
-                    server.run().await?;
+                    env.run_server().await?;
                 }
             }
         },
