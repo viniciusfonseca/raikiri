@@ -66,7 +66,7 @@ impl RaikiriEnvironmentServer for RaikiriEnvironment {
         
                 tokio::task::spawn(async move {
                     if let Err(err) = http1::Builder::new()
-                        .serve_connection(io, service_fn(|req| handle_request::<Incoming>(self.clone(), req)))
+                        .serve_connection(io, service_fn(|req| handle_request::<Incoming>(&self, req)))
                         .await
                     {
                         eprintln!("Error serving connection: {:?}", err);
@@ -78,17 +78,14 @@ impl RaikiriEnvironmentServer for RaikiriEnvironment {
     }
 }
 
-pub async fn handle_request<B>(_self: RaikiriEnvironment, request: Request<B>) ->
+pub async fn handle_request<B>(_self: &RaikiriEnvironment, request: Request<B>) ->
     Result<Response<BoxBody<Bytes, ErrorCode>>, ThreadSafeError>
     where
         B: Body<Data = Bytes, Error = hyper::Error> + Send + Sync + 'static
 {
-    let command = request
-            .headers()
-            .get("Platform-Command")
-            .unwrap()
-            .to_str()
-            .unwrap();
+    let command = request.headers()
+        .get("Platform-Command").unwrap()
+        .to_str().unwrap();
 
     match command {
         "Put-Component" => {
@@ -155,7 +152,7 @@ mod tests {
 
     impl Drop for RaikiriEnvironment {
         fn drop(&mut self) {
-            std::fs::remove_dir_all(self.fs_root.clone()).unwrap();
+            _ = std::fs::remove_dir_all(self.fs_root.clone());
         }
     }
 
@@ -170,8 +167,6 @@ mod tests {
             .with_fs_root(tmp_path.to_string());
         environment.setup_fs().await.unwrap();
 
-        environment.run_server().await.unwrap();
-
         let request = Request::builder()
             .uri("/")
             .method("GET")
@@ -180,7 +175,7 @@ mod tests {
             .body(RaikiriEnvironment::response_body("Hello World").await)
             .unwrap();
 
-        let res = handle_request(environment,request).await;
+        let res = handle_request(&environment, request).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::NOT_FOUND);
 
@@ -209,7 +204,7 @@ mod tests {
             .body(body)
             .unwrap();
 
-        let res = handle_request(environment.clone(), request).await;
+        let res = handle_request(&environment, request).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::OK);
 
@@ -223,7 +218,7 @@ mod tests {
             .body(RaikiriEnvironment::response_body("").await)
             .unwrap();
 
-        let res = handle_request(environment.clone(), request).await;
+        let res = handle_request(&environment, request).await;
         let (parts, body) = res.unwrap().into_parts();
 
         let body = body.collect().await.unwrap();
@@ -257,7 +252,7 @@ mod tests {
             .body(body)
             .unwrap();
 
-        let res = handle_request(environment.clone(), request).await;
+        let res = handle_request(&environment, request).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::OK);
 
@@ -271,7 +266,7 @@ mod tests {
             .body(RaikiriEnvironment::response_body("").await)
             .unwrap();
 
-        let res = handle_request(environment.clone(), request).await;
+        let res = handle_request(&environment, request).await;
         let (parts, body) = res.unwrap().into_parts();
 
         let body = body.collect().await.unwrap();
