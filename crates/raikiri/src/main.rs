@@ -1,4 +1,4 @@
-use adapters::{cache::new_empty_cache, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
+use adapters::{cache::new_empty_cache, component_imports::ComponentImports, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
 use domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke};
 use http_body_util::BodyExt;
@@ -123,12 +123,6 @@ async fn main() -> Result<(), ThreadSafeError> {
                     let conf = conf_file.run_confs.get(&conf).unwrap();
                     let request = InvokeRequest::new(conf.component.clone(), conf.method.clone(), conf.headers.clone(), conf.body.as_bytes().to_vec());
                     let username_component_name = request.username_component_name.clone();
-                    let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
-                    tokio::spawn(async move {
-                        while let Some(message) = rx.recv().await {
-                            default_event_handler(message)
-                        }
-                    });
                     let environment = RaikiriEnvironment::new();
                     let component_imports = ComponentImports {
                         call_stack: Vec::new(),

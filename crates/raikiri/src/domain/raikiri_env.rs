@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
+use chrono::DateTime;
 use tokio::sync::Mutex;
 use wasmtime::{Config, Engine};
+use wasmtime_wasi::pipe::MemoryOutputPipe;
 
-use crate::{adapters::{self, cache::Cache, raikirifs::ThreadSafeError}, domain::raikiri_env_component::RaikiriComponentStorage, ComponentEvent};
+use crate::{adapters::{self, cache::Cache, raikirifs::ThreadSafeError}, domain::raikiri_env_component::RaikiriComponentStorage};
 
 use super::raikiri_env_component::ComponentRegistry;
 
@@ -56,6 +58,14 @@ impl RaikiriEnvironment {
         self.component_registry = self.build_registry().await?;
         println!("Successfully registered components");
 
+        let _self = self.clone();
+
+        tokio::spawn(async move {
+            while let Some(message) = _self.event_receiver.lock().await.recv().await {
+                _self.event_handler.unwrap_or_else(|| default_event_handler)(message)
+            }
+        });
+
         Ok(self)
     }
 
@@ -79,4 +89,26 @@ impl RaikiriEnvironment {
         self
     }
 
+}
+
+pub enum ComponentEvent {
+    Execution {
+        username_component_name: String,
+        stdout: Option<MemoryOutputPipe>,
+        start: DateTime<chrono::Utc>,
+        duration: i64,
+        status: u16
+    }
+}
+
+pub fn default_event_handler(message: ComponentEvent) {
+    match message {
+        ComponentEvent::Execution { stdout, username_component_name, start, duration, status } => {
+            if let Some(stdout) = stdout {
+                println!("Stdout from {username_component_name}: {}", String::from_utf8(stdout.contents().to_vec()).unwrap());
+            }
+            let start_text = start.to_rfc3339();
+            println!("Started {username_component_name} at {start_text} and finished in {duration}ms. Status code: {status}");
+        }
+    }
 }

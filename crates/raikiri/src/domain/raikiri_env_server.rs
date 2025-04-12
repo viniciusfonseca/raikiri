@@ -9,7 +9,7 @@ use tokio::net::TcpListener;
 use wasmtime_wasi_http::{bindings::http::types::ErrorCode, io::TokioIo};
 
 
-use crate::{adapters::{raikirifs::ThreadSafeError, secret_storage}, default_event_handler, ComponentEvent, ComponentImports, Wasi};
+use crate::{adapters::{raikirifs::ThreadSafeError, secret_storage}, ComponentImports, Wasi};
 
 use super::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke};
 
@@ -81,12 +81,6 @@ async fn handle_request<B>(_self: RaikiriEnvironment, request: Request<B>) ->
                     .unwrap()
                     .to_string();
 
-                let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
-                tokio::spawn(async move {
-                    while let Some(message) = rx.recv().await {
-                        default_event_handler(message)
-                    }
-                });
                 let secrets_entry = &_self
                     .secrets_cache
                     .get_entry_by_key_async_build(username_component_name.clone(), async {

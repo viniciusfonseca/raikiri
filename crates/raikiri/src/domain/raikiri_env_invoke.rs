@@ -7,9 +7,9 @@ use hyper::body::{Body, Bytes};
 use wasmtime::{component::{Component, Linker}, Config, Engine, Store};
 use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, types::IncomingResponse, WasiHttpView};
 
-use crate::{adapters::{wasi_http_view::stream_from_string, context::RaikiriContext}, ComponentEvent, Wasi};
+use crate::{adapters::{wasi_http_view::stream_from_string, context::RaikiriContext}, Wasi};
 
-use super::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS};
+use super::{raikiri_env::{ComponentEvent, RaikiriEnvironment}, raikiri_env_fs::RaikiriEnvironmentFS};
 
 #[async_trait]
 pub trait RaikiriEnvironmentInvoke {

@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{adapters::{
-    cache::{new_empty_cache, Cache}, component_events::{default_event_handler, ComponentEvent}, component_imports::ComponentImports, raikirifs::ThreadSafeError, secret_storage, wasi_view::Wasi
+use crate::{adapters::{component_imports::ComponentImports, raikirifs::ThreadSafeError, secret_storage, wasi_view::Wasi
 }, domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke}};
 
 use futures::stream;
@@ -13,8 +12,7 @@ use hyper::{
     service::service_fn,
 };
 use crate::domain::raikiri_env_component::RaikiriComponentStorage;
-use tokio::{net::TcpListener, sync::Mutex};
-use wasmtime::component::Component;
+use tokio::net::TcpListener;
 use wasmtime_wasi_http::bindings::http::types::ErrorCode;
 use wasmtime_wasi_http::io::TokioIo;
 
@@ -33,8 +31,6 @@ impl RaikiriServer {
         let listener = Arc::new(TcpListener::bind(addr).await?);
         println!("Raikiri server listening at port {port}");
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<ComponentEvent>(0xFFFF);
-        
         Ok(Self {
             environment,
             listener,

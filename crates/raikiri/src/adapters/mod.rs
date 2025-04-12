@@ -1,5 +1,4 @@
 pub mod cache;
-pub mod component_events;
 pub mod component_imports;
 pub mod component_storage;
 pub mod context;
