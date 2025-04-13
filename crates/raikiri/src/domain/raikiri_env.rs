@@ -7,7 +7,7 @@ use wasmtime_wasi::pipe::MemoryOutputPipe;
 
 use crate::{adapters::{cache::Cache, conf_file::ConfFile}, domain::raikiri_env_component::RaikiriComponentStorage, new_empty_cache};
 
-use super::raikiri_env_component::ComponentRegistry;
+use super::{raikiri_env_component::ComponentRegistry, raikiri_env_db::RaikiriDBConnection};
 
 #[derive(Clone)]
 pub struct RaikiriEnvironment {
@@ -20,7 +20,8 @@ pub struct RaikiriEnvironment {
     pub conf_file: ConfFile,
     pub event_sender: tokio::sync::mpsc::Sender<ComponentEvent>,
     pub event_receiver: Arc<Mutex<tokio::sync::mpsc::Receiver<ComponentEvent>>>,
-    pub event_handler: Option<fn(ComponentEvent) -> ()>
+    pub event_handler: Option<fn(ComponentEvent) -> ()>,
+    pub db_connections: Cache<String, Box<dyn RaikiriDBConnection + Send + Sync>>
 }
 
 impl RaikiriEnvironment {
@@ -48,7 +49,8 @@ impl RaikiriEnvironment {
             conf_file: ConfFile::build().unwrap(),
             event_sender,
             event_receiver,
-            event_handler: None
+            event_handler: None,
+            db_connections: new_empty_cache()
         }
     }
 
