@@ -10,6 +10,7 @@ pub type ComponentRegistry = Cache<String, Component>;
 #[async_trait]
 pub trait RaikiriComponentStorage {
     async fn add_component(&self, user: String, name: String, component_bytes: Vec<u8>) -> Result<(), ThreadSafeError>;
+    async fn component_exists(&self, user: String, name: String) -> bool;
     async fn get_component(&self, user: String, name: String) -> Result<Component, ThreadSafeError>;
     async fn remove_component(&self, user: String, name: String) -> Result<(), ThreadSafeError>;
     async fn build_registry(&self) -> Result<ComponentRegistry, ThreadSafeError>;
@@ -21,6 +22,10 @@ impl RaikiriComponentStorage for RaikiriEnvironment {
         let component = Component::from_binary(&self.wasm_engine, &component_bytes).expect("error compiling wasm component");
         let component_bytes = component.serialize().expect("error serializing component to file");
         self.write_file(format!("components/{user}.{name}.aot.wasm"), component_bytes).await
+    }
+
+    async fn component_exists(&self, user: String, name: String) -> bool {
+        self.file_exists(format!("components/{user}.{name}.aot.wasm")).await
     }
 
     async fn get_component(&self, user: String, name: String) -> Result<Component, ThreadSafeError> {

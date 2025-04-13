@@ -4,12 +4,12 @@ use async_trait::async_trait;
 use http::Request;
 use http_body_util::BodyExt;
 use hyper::body::{Body, Bytes};
-use wasmtime::{component::{Component, Linker}, Config, Engine, Store};
+use wasmtime::{component::Linker, Store};
 use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, types::IncomingResponse, WasiHttpView};
 
 use crate::{adapters::{wasi_http_view::stream_from_string, context::RaikiriContext}, Wasi};
 
-use super::{raikiri_env::{ComponentEvent, RaikiriEnvironment}, raikiri_env_fs::RaikiriEnvironmentFS};
+use super::{raikiri_env::{ComponentEvent, RaikiriEnvironment}, raikiri_env_component::RaikiriComponentStorage, raikiri_env_fs::RaikiriEnvironmentFS};
 
 #[async_trait]
 pub trait RaikiriEnvironmentInvoke {
@@ -58,12 +58,11 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
         }
         call_stack.push(username_component_name.clone());
 
-        let fs_path = format!("components/{username_component_name}.aot.wasm");
-        let wasm_path = self.get_path(fs_path.clone());
         let call_stack_len = call_stack.len();
         let component_registry = &wasi.data.environment().component_registry;
 
-        if !self.file_exists(fs_path.clone()).await {
+        let (user, name) = username_component_name.split_once('.').unwrap();
+        if !self.component_exists(user.to_string(), name.to_string()).await {
             return Ok(build_response(
                 404,
                 format!("Component {username_component_name} not found").as_str(),
@@ -71,14 +70,8 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
         }
 
         let component_entry = component_registry
-            .get_entry_by_key(username_component_name.clone(), || {
-                let mut config = Config::new();
-                config.cache_config_load_default().unwrap();
-                config.wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable);
-                config.wasm_component_model(true);
-                config.async_support(true);
-                let engine = Engine::new(&config).unwrap();
-                unsafe { Component::deserialize_file(&engine, wasm_path.clone()).unwrap() }
+            .get_entry_by_key_async_build(username_component_name.clone(), async move {
+                self.get_component(user.to_string(), name.to_string()).await.unwrap()
             })
             .await;
         let component = component_entry.read().await;

@@ -19,7 +19,7 @@ pub trait RaikiriEnvironmentServer {
     where
         E: Send + Sync + 'static,
         T: ToString + Send;
-        async fn response_body_bytes<E>(body: Vec<u8>) -> BoxBody<Bytes, E>
+    async fn response_body_bytes<E>(body: Vec<u8>) -> BoxBody<Bytes, E>
     where
         E: Send + Sync + 'static;
     async fn run_server(&self) -> Result<(), ThreadSafeError>;

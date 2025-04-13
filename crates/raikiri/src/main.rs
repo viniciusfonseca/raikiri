@@ -3,7 +3,6 @@ use clap::{Parser, Subcommand};
 use domain::{raikiri_env::{RaikiriEnvironment, ThreadSafeError}, raikiri_env_component::RaikiriComponentStorage, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_invoke::RaikiriEnvironmentInvoke, raikiri_env_secrets::RaikiriEnvironmentSecrets, raikiri_env_server::RaikiriEnvironmentServer};
 use http_body_util::BodyExt;
 use types::InvokeRequest;
-use wasmtime_wasi::bindings::cli::environment;
 
 mod adapters;
 mod types;
