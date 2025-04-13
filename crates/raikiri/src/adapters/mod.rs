@@ -5,3 +5,4 @@ pub mod wasi_http_view;
 pub mod wasi_view;
 pub mod wit;
 pub mod conf_file;
+pub mod db;
