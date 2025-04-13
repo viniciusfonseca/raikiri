@@ -14,7 +14,6 @@ rust-version = "1.85.0"
 
 [workspace.dependencies]
 test-programs-artifacts = { path = "crates/test-programs/artifacts" }
-wasi-preview1-component-adapter = { path = "crates/wasi-preview1-component-adapter" }
 byte-array-literals = { path = "crates/wasi-preview1-component-adapter/byte-array-literals" }
 wit-bindgen-rust-macro = { version = "0.41.0", default-features = false }
 object = { version = "0.36.5", default-features = false, features = ['read_core', 'elf'] }
