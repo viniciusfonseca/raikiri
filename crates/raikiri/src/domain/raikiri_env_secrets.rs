@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use yaml_rust2::{Yaml, YamlEmitter, YamlLoader};
 
-use crate::adapters::raikirifs::ThreadSafeError;
-
-use super::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS};
+use super::{raikiri_env::{RaikiriEnvironment, ThreadSafeError}, raikiri_env_fs::RaikiriEnvironmentFS};
 
 #[async_trait]
 pub trait RaikiriEnvironmentSecrets {
@@ -15,6 +13,7 @@ pub trait RaikiriEnvironmentSecrets {
     async fn update_crypto_key(&self, username: String, new_key: Vec<u8>) -> Result<(), ThreadSafeError>;
     async fn update_encrypted_secret(&self, entry: String, username_hash: &String, current_key: &Vec<u8>, new_key: &Vec<u8>) -> Result<(), ThreadSafeError>;
     async fn remove_all_new_encrypted(&self, username_hash: &String) -> Result<(), ThreadSafeError>;
+    async fn update_component_secrets(&self, user: String, name: String, secrets_content: Vec<u8>) -> Result<(), ThreadSafeError>;
 }
 
 struct ByteBuf<'a>(&'a [u8]);
@@ -60,6 +59,8 @@ impl RaikiriEnvironmentSecrets for RaikiriEnvironment {
         }
         Ok(result_secrets)
     }
+
+
 
     fn gen_new_crypto_key() -> Result<Vec<u8>, ThreadSafeError> {
         let mut key = [0; 32];
@@ -137,6 +138,25 @@ impl RaikiriEnvironmentSecrets for RaikiriEnvironment {
                 self.remove_file(format!("secrets/{username_hash}/{file_name}")).await?;
             }
         }
+    
+        Ok(())
+    }
+
+    async fn update_component_secrets(&self, user: String, name: String, secrets_content: Vec<u8>) -> Result<(), ThreadSafeError> {
+
+        let secrets = YamlLoader::load_from_str(&String::from_utf8(secrets_content)?)?;
+        let secret = Self::serialize_yaml(secrets[0].clone()).await?;
+    
+        let username_hash = format!("{:x}", ByteBuf(&openssl::sha::sha256(&user.as_bytes())));
+        let username_component_name = format!("{user}.{name}");
+        let username_component_name_hash = format!("{:x}", ByteBuf(&openssl::sha::sha256(&username_component_name.as_bytes())));
+        let secrets_path = format!("secrets/{username_hash}");
+        self.create_dir(&secrets_path).await?;
+    
+        let crypto_key = self.get_crypto_key(user.to_string()).await?;
+    
+        let encrypted = openssl::symm::encrypt(openssl::symm::Cipher::aes_256_cbc(), &crypto_key, None, &secret.as_bytes())?;
+        self.write_file(format!("secrets/{username_hash}/{username_component_name_hash}"), encrypted).await?;
     
         Ok(())
     }

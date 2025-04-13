@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use wasmtime::{component::Component, Config, Engine};
 
-use crate::{adapters::{cache::Cache, raikirifs::ThreadSafeError}, new_empty_cache};
+use crate::{adapters::cache::Cache, new_empty_cache};
 
-use super::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS};
+use super::{raikiri_env::{RaikiriEnvironment, ThreadSafeError}, raikiri_env_fs::RaikiriEnvironmentFS};
 
 pub type ComponentRegistry = Cache<String, Component>;
 

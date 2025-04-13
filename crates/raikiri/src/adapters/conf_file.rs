@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs};
 use hashlink::LinkedHashMap;
 use yaml_rust2::Yaml;
 
-use super::raikirifs::ThreadSafeError;
+use crate::domain::raikiri_env::ThreadSafeError;
 
 static CONF_FILE_PATH: &str = "raikiri.yaml";
 

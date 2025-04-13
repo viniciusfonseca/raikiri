@@ -2,9 +2,7 @@ use std::path::Path;
 
 use async_trait::async_trait;
 
-use crate::adapters::raikirifs::ThreadSafeError;
-
-use super::raikiri_env::RaikiriEnvironment;
+use super::raikiri_env::{RaikiriEnvironment, ThreadSafeError};
 
 #[async_trait]
 pub trait RaikiriEnvironmentFS {

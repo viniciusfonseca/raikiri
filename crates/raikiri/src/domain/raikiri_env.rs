@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use wasmtime::{Config, Engine};
 use wasmtime_wasi::pipe::MemoryOutputPipe;
 
-use crate::{adapters::{self, cache::Cache, raikirifs::ThreadSafeError}, domain::raikiri_env_component::RaikiriComponentStorage};
+use crate::{adapters::{cache::Cache, conf_file::ConfFile}, domain::raikiri_env_component::RaikiriComponentStorage, new_empty_cache};
 
 use super::raikiri_env_component::ComponentRegistry;
 
@@ -17,7 +17,7 @@ pub struct RaikiriEnvironment {
     pub component_registry: ComponentRegistry,
     pub secrets_cache: Cache<String, Vec<(String, String)>>,
     pub port: u16,
-    pub conf_file: adapters::conf_file::ConfFile,
+    pub conf_file: ConfFile,
     pub event_sender: tokio::sync::mpsc::Sender<ComponentEvent>,
     pub event_receiver: Arc<Mutex<tokio::sync::mpsc::Receiver<ComponentEvent>>>,
     pub event_handler: Option<fn(ComponentEvent) -> ()>
@@ -42,17 +42,17 @@ impl RaikiriEnvironment {
             fs_root,
             username,
             wasm_engine,
-            component_registry: adapters::cache::new_empty_cache(),
-            secrets_cache: adapters::cache::new_empty_cache(),
+            component_registry: new_empty_cache(),
+            secrets_cache: new_empty_cache(),
             port: 0,
-            conf_file: adapters::conf_file::ConfFile::build().unwrap(),
+            conf_file: ConfFile::build().unwrap(),
             event_sender,
             event_receiver,
             event_handler: None
         }
     }
 
-    pub async fn init<T>(&mut self) -> Result<&mut Self, ThreadSafeError> {
+    pub async fn init(&mut self) -> Result<&mut Self, ThreadSafeError> {
 
         println!("Registering components...");
         self.component_registry = self.build_registry().await?;
@@ -100,6 +100,8 @@ pub enum ComponentEvent {
         status: u16
     }
 }
+
+pub type ThreadSafeError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 pub fn default_event_handler(message: ComponentEvent) {
     match message {

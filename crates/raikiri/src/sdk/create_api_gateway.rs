@@ -1,4 +1,4 @@
-use crate::adapters::raikirifs::ThreadSafeError;
+use crate::domain::raikiri_env::ThreadSafeError;
 
 use super::shared::get_cloud_url;
 

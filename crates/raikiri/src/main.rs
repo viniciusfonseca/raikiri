@@ -1,8 +1,9 @@
-use adapters::{cache::new_empty_cache, component_imports::ComponentImports, component_storage, raikirifs::{self, init, ThreadSafeError}, secret_storage, wasi_view::Wasi};
+use adapters::{cache::new_empty_cache, component_imports::ComponentImports, wasi_view::Wasi};
 use clap::{Parser, Subcommand};
-use domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke, raikiri_env_server::RaikiriEnvironmentServer};
+use domain::{raikiri_env::{RaikiriEnvironment, ThreadSafeError}, raikiri_env_component::RaikiriComponentStorage, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_invoke::RaikiriEnvironmentInvoke, raikiri_env_secrets::RaikiriEnvironmentSecrets, raikiri_env_server::RaikiriEnvironmentServer};
 use http_body_util::BodyExt;
 use types::InvokeRequest;
+use wasmtime_wasi::bindings::cli::environment;
 
 mod adapters;
 mod types;
@@ -92,15 +93,16 @@ enum CloudSubcommand {
 
 #[tokio::main]
 async fn main() -> Result<(), ThreadSafeError> {
-    let username = whoami::username();
-    init().await?;
+    let mut environment = RaikiriEnvironment::new();
+    environment.init().await?;
+    environment.setup_fs().await?;
+    let username = environment.username.clone();
     match Cli::parse().command {
         Commands::Server { command } => {
             match command {
                 ServerSubcommand::Start { port } => {
                     println!("starting Raikiri server at port: {port}");
-                    let env = RaikiriEnvironment::new();
-                    env.run_server().await?;
+                    environment.run_server().await?;
                 }
             }
         },
@@ -108,7 +110,8 @@ async fn main() -> Result<(), ThreadSafeError> {
             match command {
                 ComponentSubcommand::Add { name, path } => {
                     let username_component_name = format!("{username}.{name}");
-                    component_storage::add_component(username, name.clone(), path).await?;
+                    let component_bytes = tokio::fs::read(path.clone()).await?;
+                    environment.add_component(username, name.clone(), component_bytes).await?;
                     println!("Successfully added component {username_component_name}");
                 },
                 ComponentSubcommand::Run { conf } => {
@@ -125,7 +128,8 @@ async fn main() -> Result<(), ThreadSafeError> {
                         call_stack: Vec::new(),
                         environment: RaikiriEnvironment::new(),
                     };
-                    let secrets = secret_storage::get_component_secrets(username_component_name.clone()).await?;
+                    let (username, component_name) = username_component_name.split_once('.').unwrap();
+                    let secrets = environment.get_component_secrets(username.to_string(), component_name.to_string()).await?;
                     let response = environment.invoke_component(username_component_name.clone(), request.into(), Wasi::new(component_imports, secrets)).await?;
                     println!("Successfully invoked {username_component_name}");
                     let resp_body = BodyExt::collect(response.resp.into_body()).await?.to_bytes().to_vec();
@@ -133,27 +137,27 @@ async fn main() -> Result<(), ThreadSafeError> {
                 },
                 ComponentSubcommand::Remove { name } => {
                     let username_component_name = format!("{username}.{name}");
-                    component_storage::remove_component(username, name).await?;
+                    environment.remove_component(username, name).await?;
                     println!("Successfully removed component {username_component_name}");
                 },
                 ComponentSubcommand::UpdateSecret { component_name, secrets_path } => {
                     let username_component_name = format!("{username}.{component_name}");
                     println!("Updating secret for component {username_component_name}");
                     let secrets_content = tokio::fs::read(secrets_path).await?;
-                    secret_storage::update_component_secrets(username_component_name.clone(), secrets_content).await?;
+                    environment.update_component_secrets(username, component_name, secrets_content).await?;
                     println!("Successfully updated secret for component {username_component_name}");
                 }
             }
         },
         Commands::UpdateCryptoKey { path } => {
             let key_bytes = tokio::fs::read(path).await?;
-            secret_storage::update_crypto_key(username, key_bytes).await?;
+            environment.update_crypto_key(username, key_bytes).await?;
             println!("Successfully updated crypto key");
         },
         Commands::Cloud { command } => {
             match command {
                 CloudSubcommand::StoreToken { token } => {
-                    raikirifs::write_file(".cloud-token".to_string(), token.into_bytes().to_vec()).await?;
+                    environment.write_file(".cloud-token", token.into_bytes().to_vec()).await?;
                     println!("Successfully stored token");
                 }
                 CloudSubcommand::UploadComponent { name, path } => {

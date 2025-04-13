@@ -1,10 +1,11 @@
-use crate::adapters::raikirifs::{self, ThreadSafeError};
+use crate::domain::raikiri_env::ThreadSafeError;
 
 use super::shared::get_cloud_url;
 
 pub async fn upload_component(username: String, component_name: String, file_path: String) -> Result<(), ThreadSafeError> {
 
-    let token = String::from_utf8(raikirifs::read_file(".cloud-token".to_string()).await?)?;
+    // let token = String::from_utf8(raikirifs::read_file(".cloud-token".to_string()).await?)?;
+    let token = "YET TO IMPLEMENT!";
 
     let component_content = tokio::fs::read(file_path).await?;
 
