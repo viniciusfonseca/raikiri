@@ -14,23 +14,23 @@ pub enum RaikiriDBConnectionKind {
     DynamoDB
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 pub trait RaikiriEnvironmentDB {
     async fn create_connection(&self, kind: RaikiriDBConnectionKind, params: Vec<u8>) -> Box<dyn RaikiriDBConnection + Send + Sync>; 
     async fn get_connection(&self, id: String) -> Arc<RwLock<Box<dyn RaikiriDBConnection + Send + Sync>>>;
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 pub trait RaikiriDBConnection {
     async fn query(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError>;
-    async fn execute(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError>;
+    async fn execute_command(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError>;
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl RaikiriEnvironmentDB for RaikiriEnvironment {
     async fn create_connection(&self, kind: RaikiriDBConnectionKind, params: Vec<u8>) -> Box<dyn RaikiriDBConnection + Send + Sync> {
         match kind {
-            RaikiriDBConnectionKind::PostgreSQL => Box::new(create_psql_connection(params).await),
+            RaikiriDBConnectionKind::PostgreSQL => Box::new(create_psql_connection(params).await.unwrap()),
             RaikiriDBConnectionKind::MySQL => todo!(),
             RaikiriDBConnectionKind::MongoDB => todo!(),
             RaikiriDBConnectionKind::DynamoDB => todo!(),
