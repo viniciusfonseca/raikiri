@@ -150,7 +150,7 @@ mod tests {
     use http::{Request, StatusCode};
     use http_body_util::BodyExt;
 
-    use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::{handle_request, RaikiriEnvironmentServer}};
+    use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::{handle_request, RaikiriEnvironmentServer}, tests::create_test_env};
 
     impl Drop for RaikiriEnvironment {
         fn drop(&mut self) {
@@ -161,12 +161,7 @@ mod tests {
     #[tokio::test]
     async fn test_start_server() -> Result<()> {
 
-        let tmp_path = "/tmp/raikiri-0";
-        tokio::fs::create_dir_all(tmp_path).await.unwrap();
-
-        let environment = RaikiriEnvironment::new()
-            .with_username("test".to_string())
-            .with_fs_root(tmp_path.to_string());
+        let environment = create_test_env();
         environment.setup_fs().await.unwrap();
 
         let request = Request::builder()
@@ -187,12 +182,7 @@ mod tests {
     #[tokio::test]
     async fn test_invoke_api_proxy() -> Result<(), wasmtime::Error> {
 
-        let tmp_path = "/tmp/raikiri-1";
-        tokio::fs::create_dir_all(tmp_path).await.unwrap();
-
-        let environment = RaikiriEnvironment::new()
-            .with_username("test".to_string())
-            .with_fs_root(tmp_path.to_string());
+        let environment = create_test_env();
         environment.setup_fs().await.unwrap();
 
         // put component
@@ -235,12 +225,7 @@ mod tests {
     #[tokio::test]
     async fn test_invoke_hello() -> Result<(), wasmtime::Error> {
 
-        let tmp_path = "/tmp/raikiri-2";
-        tokio::fs::create_dir_all(tmp_path).await.unwrap();
-
-        let environment = RaikiriEnvironment::new()
-            .with_username("test".to_string())
-            .with_fs_root(tmp_path.to_string());
+        let environment = create_test_env();
         environment.setup_fs().await.unwrap();
 
         // put component

@@ -8,10 +8,10 @@ use crate::adapters::db::postgresql::create_psql_connection;
 use super::raikiri_env::{RaikiriEnvironment, ThreadSafeError};
 
 pub enum RaikiriDBConnectionKind {
-    PostgreSQL,
-    MySQL,
-    MongoDB,
-    DynamoDB
+    POSTGRESQL,
+    MYSQL,
+    MONGODB,
+    DYNAMODB
 }
 
 #[async_trait(?Send)]
@@ -30,11 +30,10 @@ pub trait RaikiriDBConnection {
 impl RaikiriEnvironmentDB for RaikiriEnvironment {
     async fn create_connection(&self, kind: RaikiriDBConnectionKind, params: Vec<u8>) -> Box<dyn RaikiriDBConnection + Send + Sync> {
         match kind {
-            RaikiriDBConnectionKind::PostgreSQL => Box::new(create_psql_connection(params).await.unwrap()),
-            RaikiriDBConnectionKind::MySQL => todo!(),
-            RaikiriDBConnectionKind::MongoDB => todo!(),
-            RaikiriDBConnectionKind::DynamoDB => todo!(),
-            _ => panic!("Unsupported database kind")
+            RaikiriDBConnectionKind::POSTGRESQL => Box::new(create_psql_connection(params).await.unwrap()),
+            RaikiriDBConnectionKind::MYSQL => todo!(),
+            RaikiriDBConnectionKind::MONGODB => todo!(),
+            RaikiriDBConnectionKind::DYNAMODB => todo!(),
         }
     }
     async fn get_connection(&self, id: String) -> Arc<RwLock<Box<dyn RaikiriDBConnection + Send + Sync>>> {

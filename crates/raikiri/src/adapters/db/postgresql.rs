@@ -1,10 +1,10 @@
 use core::panic;
-use std::pin;
+use std::pin::pin;
 
 use async_trait::async_trait;
-use futures::pin_mut;
+use futures::StreamExt;
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio_postgres::{types::ToSql, GenericClient, NoTls};
 
 use crate::domain::{raikiri_env::ThreadSafeError, raikiri_env_db::RaikiriDBConnection};
@@ -72,17 +72,58 @@ impl RaikiriDBConnection for tokio_postgres::Client {
             .map(|v| v.as_ref())
             .collect::<Vec<&(dyn ToSql + Sync)>>();
         let params = slice_iter(&params);
-        let result = self.query_raw(&stmt, params).await?;
-        Ok(Vec::new())
+        let mut rows = pin!(self.query_raw(&stmt, params).await?);
+        let mut result = Vec::new();
+        while let Some(Ok(row)) = rows.next().await {
+            let mut map = serde_json::Map::new();
+            for i in 0..stmt.columns().len() {
+                let column = &stmt.columns()[i];
+                let column_name = column.name().to_string();
+                match &*column.type_() {
+                    &tokio_postgres::types::Type::INT4 => {
+                        let value: i32 = row.get(i);
+                        map.insert(column_name, json!(value));
+                    }
+                    &tokio_postgres::types::Type::FLOAT8 => {
+                        let value: f64 = row.get(i);
+                        map.insert(column_name, json!(value));
+                    }
+                    &tokio_postgres::types::Type::TEXT => {
+                        let value: String = row.get(i);
+                        map.insert(column_name, json!(value));
+                    }
+                    &tokio_postgres::types::Type::NUMERIC => {
+                        let value: i32 = row.get(i);
+                        map.insert(column_name, json!(value));
+                    }
+                    &tokio_postgres::types::Type::BOOL => {
+                        let value: bool = row.get(i);
+                        map.insert(column_name, json!(value));
+                    }
+                    _ => {
+                        let value: String = row.get(i);
+                        map.insert(column_name, json!(value));
+                    }
+                }
+            }
+            result.push(map);
+        }
+        Ok(serde_json::to_string(&result).unwrap().as_bytes().to_vec())
     }
-}
-
-async fn execute_command(_self: &tokio_postgres::Client, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError> {
-    Ok(Vec::new())       
 }
 
 fn slice_iter<'a>(
     s: &'a [&'a (dyn ToSql + Sync)],
 ) -> impl ExactSizeIterator<Item = &'a dyn ToSql> + 'a {
     s.iter().map(|s| *s as _)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_postgresql() {
+        
+    }
 }
