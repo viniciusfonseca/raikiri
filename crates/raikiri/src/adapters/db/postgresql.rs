@@ -120,10 +120,13 @@ fn slice_iter<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::domain::{raikiri_env_fs::RaikiriEnvironmentFS, tests::create_test_env};
 
     #[tokio::test]
     async fn test_postgresql() {
+        let env = create_test_env();
+        env.setup_fs().await.unwrap();
+
         
     }
 }

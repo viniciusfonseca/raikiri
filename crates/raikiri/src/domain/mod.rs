@@ -7,7 +7,7 @@ pub mod raikiri_env_server;
 pub mod raikiri_env_db;
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::raikiri_env::RaikiriEnvironment;
 
     pub fn create_test_dir() -> String {
