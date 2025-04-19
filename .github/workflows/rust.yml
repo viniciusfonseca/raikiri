@@ -10,12 +10,22 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  unit-tests:
+    name: Unit tests
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
+    - uses: actions-rs/toolchain@v1
+      with:
+        target: wasm32-unknown-unknown
+        toolchain: stable
+        override: true
+    - uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --locked
 #    - name: Build
 #      run: cargo build --verbose
     - name: Run tests
