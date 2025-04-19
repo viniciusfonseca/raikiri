@@ -181,7 +181,7 @@ fn compile_component(wasm: &Path, adapter: &[u8]) -> PathBuf {
 }
 
 fn build_debug_info_assets(paths_code: &mut String) {
-    const ASSETS_REL_SRC_DIR: &'static str = "../../testsuite/target";
+    const ASSETS_REL_SRC_DIR: &'static str = "../../testsuite";
     println!("cargo:rerun-if-changed={ASSETS_REL_SRC_DIR}");
 
     // There are three types of assets at this time:
