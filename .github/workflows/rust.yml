@@ -22,10 +22,6 @@ jobs:
         target: wasm32-unknown-unknown
         toolchain: stable
         override: true
-    - uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --locked
 #    - name: Build
 #      run: cargo build --verbose
     - name: Run tests
