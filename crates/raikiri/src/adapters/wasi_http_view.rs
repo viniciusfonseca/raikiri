@@ -29,10 +29,6 @@ impl <T> WasiHttpView for Wasi<T> where T: Send + Clone + RaikiriContext + 'stat
         &mut self.http_ctx
     }
 
-    // fn table(&mut self) -> &mut ResourceTable {
-    //     &mut self.table
-    // }
-
     fn send_request(
         &mut self,
         request: hyper::Request<HyperOutgoingBody>,

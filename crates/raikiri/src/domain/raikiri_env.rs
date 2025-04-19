@@ -21,7 +21,7 @@ pub struct RaikiriEnvironment {
     pub event_sender: tokio::sync::mpsc::Sender<ComponentEvent>,
     pub event_receiver: Arc<Mutex<tokio::sync::mpsc::Receiver<ComponentEvent>>>,
     pub event_handler: Option<fn(ComponentEvent) -> ()>,
-    pub db_connections: Cache<String, Box<dyn RaikiriDBConnection + Send + Sync>>
+    pub db_connections: scc::HashMap<String, Arc<dyn RaikiriDBConnection + Send + Sync>>
 }
 
 impl RaikiriEnvironment {
@@ -50,7 +50,7 @@ impl RaikiriEnvironment {
             event_sender,
             event_receiver,
             event_handler: None,
-            db_connections: new_empty_cache()
+            db_connections: scc::HashMap::default()
         }
     }
 

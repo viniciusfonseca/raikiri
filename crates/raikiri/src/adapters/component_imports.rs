@@ -1,9 +1,13 @@
+use std::time::Duration;
+
 use futures::stream;
+use http::Response;
 use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
 use hyper::body::{Bytes, Frame};
-use wasmtime_wasi_http::types::HostFutureIncomingResponse;
+use testcontainers::bollard::secret;
+use wasmtime_wasi_http::types::{HostFutureIncomingResponse, IncomingResponse};
 
-use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_invoke::RaikiriEnvironmentInvoke, raikiri_env_secrets::RaikiriEnvironmentSecrets};
+use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_db::{RaikiriDBConnectionKind, RaikiriEnvironmentDB}, raikiri_env_invoke::{build_response, RaikiriEnvironmentInvoke}, raikiri_env_secrets::RaikiriEnvironmentSecrets};
 
 use super::{context::RaikiriContext, wasi_view::Wasi};
 
@@ -49,11 +53,36 @@ impl RaikiriContext for ComponentImports {
                     let wasi = Wasi::new(data.clone(), secrets.to_vec());
                     Ok(data.environment.invoke_component(username_component_name, request, wasi).await)
                 });
-                return Ok(HostFutureIncomingResponse::Pending(future_handle))
+                Ok(HostFutureIncomingResponse::Pending(future_handle))
             }
-            // "raikiri.db" => {
-                
-            // }
+            "raikiri.db" => {
+                let data = self.clone();
+                let future_handle = wasmtime_wasi::runtime::spawn(async move {
+                    match request.uri().path() {
+                        "/postgres_connection" => {
+                            let caller = data.call_stack().last().unwrap();
+                            let secrets_entry = &data.environment.secrets_cache.get_entry_by_key_async_build(caller.clone(), async {
+                                data.environment.get_component_secrets(caller.to_string(), "secrets".to_string()).await.unwrap_or_else(|_| Vec::new())
+                            }).await;
+                            let secrets = secrets_entry.read().await;
+                            let postgres_connection_string = &secrets.iter().find(|(key, _)| key == "POSTGRES_CONNECTION_STRING").unwrap().1;
+                            let connection = data.environment.create_connection(RaikiriDBConnectionKind::POSTGRESQL, postgres_connection_string.as_str().as_bytes().to_vec()).await;
+                            let connection_id = uuid::Uuid::new_v4().to_string();
+                            data.environment.db_connections.insert(connection_id.clone(), connection);
+                            Ok(Ok(build_response(200, &connection_id).await))
+                        }
+                        "/execute" => {
+                            let connection_id = request.headers().get("Connection-Id").unwrap().to_str().unwrap();
+                            let connection = data.environment.get_connection(connection_id.to_string()).await;
+                            let body = request.into_body().collect().await.unwrap().to_bytes().to_vec();
+                            let response = connection.execute_command(body).await.unwrap();
+                            Ok(Ok(build_response(200, &String::from_utf8(response).unwrap()).await))
+                        }
+                        _ => Ok(Ok(build_response(404, "").await))
+                    }
+                });
+                Ok(HostFutureIncomingResponse::Pending(future_handle))
+            }
             _ => Ok(wasmtime_wasi_http::types::default_send_request(request, config))
         }
     }

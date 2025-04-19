@@ -161,7 +161,7 @@ impl RaikiriEnvironmentInvoke for RaikiriEnvironment {
     }
 }
 
-async fn build_response(status: u16, body: &str) -> IncomingResponse {
+pub async fn build_response(status: u16, body: &str) -> IncomingResponse {
     let resp = http::Response::builder()
         .status(status)
         .body(stream_from_string(body.to_string()).await)

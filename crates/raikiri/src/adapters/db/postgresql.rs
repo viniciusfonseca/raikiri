@@ -12,7 +12,7 @@ use crate::domain::{raikiri_env::ThreadSafeError, raikiri_env_db::RaikiriDBConne
 #[derive(Deserialize)]
 struct PostgreSQLParams {
     sql: String,
-    params: Vec<Value>
+    params: Option<Vec<Value>>
 }
 
 pub async fn create_psql_connection(params: Vec<u8>) -> Result<tokio_postgres::Client, ThreadSafeError> {
@@ -24,7 +24,7 @@ pub async fn create_psql_connection(params: Vec<u8>) -> Result<tokio_postgres::C
     Ok(client)
 }
 
-fn cast_value_as_tosql(v: Value) -> Box<dyn ToSql + Sync> {
+fn cast_value_as_tosql(v: Value) -> Box<dyn ToSql + Sync + Send> {
     match v {
         Value::Null => Box::new(Option::<String>::None),
         Value::Bool(v) => Box::new(v),
@@ -45,18 +45,18 @@ fn cast_value_as_tosql(v: Value) -> Box<dyn ToSql + Sync> {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl RaikiriDBConnection for tokio_postgres::Client {
     
     async fn execute_command(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError> {
         let params = serde_json::from_slice::<PostgreSQLParams>(&params).unwrap();
         let stmt = self.prepare(&params.sql).await?;
-        let params = params.params.iter()
+        let params = params.params.unwrap_or_default().iter()
             .map(|v| cast_value_as_tosql(v.clone()))
-            .collect::<Vec<Box<dyn ToSql + Sync>>>();
+            .collect::<Vec<Box<dyn ToSql + Sync + Send>>>();
         let params = params.iter()
             .map(|v| v.as_ref())
-            .collect::<Vec<&(dyn ToSql + Sync)>>();
+            .collect::<Vec<&(dyn ToSql + Sync + Send)>>();
         let params = slice_iter(&params);
         let result = self.execute_raw(&stmt, params).await?;
         Ok(result.to_string().as_bytes().to_vec())
@@ -65,12 +65,12 @@ impl RaikiriDBConnection for tokio_postgres::Client {
     async fn query(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError> {
         let params = serde_json::from_slice::<PostgreSQLParams>(&params).unwrap();
         let stmt = self.prepare(&params.sql).await?;
-        let params = params.params.iter()
+        let params = params.params.unwrap_or_default().iter()
             .map(|v| cast_value_as_tosql(v.clone()))
-            .collect::<Vec<Box<dyn ToSql + Sync>>>();
+            .collect::<Vec<Box<dyn ToSql + Sync + Send>>>();
         let params = params.iter()
             .map(|v| v.as_ref())
-            .collect::<Vec<&(dyn ToSql + Sync)>>();
+            .collect::<Vec<&(dyn ToSql + Sync + Send)>>();
         let params = slice_iter(&params);
         let mut rows = pin!(self.query_raw(&stmt, params).await?);
         let mut result = Vec::new();
@@ -113,7 +113,7 @@ impl RaikiriDBConnection for tokio_postgres::Client {
 }
 
 fn slice_iter<'a>(
-    s: &'a [&'a (dyn ToSql + Sync)],
+    s: &'a [&'a (dyn ToSql + Sync + Send)],
 ) -> impl ExactSizeIterator<Item = &'a dyn ToSql> + 'a {
     s.iter().map(|s| *s as _)
 }

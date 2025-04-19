@@ -33,6 +33,7 @@ async-trait = "0.1.88"
 tokio-postgres = "0.7.13"
 uuid = { version = "1.16.0", features = ["v4"] }
 testcontainers = "0.23.3"
+scc = "2.3.3"
 
 [dev-dependencies]
 test-programs-artifacts = { workspace = true }
