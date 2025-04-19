@@ -121,6 +121,7 @@ pub async fn handle_request<B>(_self: &RaikiriEnvironment, request: Request<B>) 
             let component_imports = ComponentImports {
                 call_stack: Vec::new(),
                 environment: _self.clone(),
+                db_connections: Default::default()
             };
             let response = _self.invoke_component(
                 username_component_name.clone(),
@@ -150,7 +151,7 @@ mod tests {
     use http::{Request, StatusCode};
     use http_body_util::BodyExt;
 
-    use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::{handle_request, RaikiriEnvironmentServer}, tests::create_test_env};
+    use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::{handle_request, RaikiriEnvironmentServer}, tests::{create_test_env, make_put_component_request}};
 
     impl Drop for RaikiriEnvironment {
         fn drop(&mut self) {
@@ -185,18 +186,8 @@ mod tests {
         let environment = create_test_env();
         environment.setup_fs().await.unwrap();
 
-        // put component
-        let component = tokio::fs::read(test_programs_artifacts::API_PROXY_COMPONENT).await.unwrap();
-        let body = RaikiriEnvironment::response_body_bytes(component).await;
-        let request = Request::builder()
-            .uri("/")
-            .method("POST")
-            .header("Platform-Command", "Put-Component")
-            .header("Component-Id", "hello")
-            .body(body)
-            .unwrap();
-
-        let res = handle_request(&environment, request).await;
+        let req = make_put_component_request(test_programs_artifacts::API_PROXY_COMPONENT).await;
+        let res = handle_request(&environment, req).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::OK);
 
@@ -229,17 +220,8 @@ mod tests {
         environment.setup_fs().await.unwrap();
 
         // put component
-        let component = tokio::fs::read(test_programs_artifacts::API_RAIKIRI_HELLO_COMPONENT).await.unwrap();
-        let body = RaikiriEnvironment::response_body_bytes(component).await;
-        let request = Request::builder()
-            .uri("/")
-            .method("POST")
-            .header("Platform-Command", "Put-Component")
-            .header("Component-Id", "hello")
-            .body(body)
-            .unwrap();
-
-        let res = handle_request(&environment, request).await;
+        let req = make_put_component_request(test_programs_artifacts::API_RAIKIRI_HELLO_COMPONENT).await;
+        let res = handle_request(&environment, req).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::OK);
 

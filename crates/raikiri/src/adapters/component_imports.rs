@@ -1,16 +1,19 @@
+use std::sync::Arc;
+
 use futures::stream;
 use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
 use hyper::body::{Bytes, Frame};
 use wasmtime_wasi_http::types::HostFutureIncomingResponse;
 
-use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_db::{RaikiriDBConnectionKind, RaikiriEnvironmentDB}, raikiri_env_invoke::{build_response, RaikiriEnvironmentInvoke}, raikiri_env_secrets::RaikiriEnvironmentSecrets};
+use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_db::{RaikiriDBConnection, RaikiriDBConnectionKind, RaikiriEnvironmentDB}, raikiri_env_invoke::{build_response, RaikiriEnvironmentInvoke}, raikiri_env_secrets::RaikiriEnvironmentSecrets};
 
 use super::{context::RaikiriContext, wasi_view::Wasi};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ComponentImports {
     pub call_stack: Vec<String>,
     pub environment: RaikiriEnvironment,
+    pub db_connections: scc::HashMap<String, Arc<dyn RaikiriDBConnection + Send + Sync>>
 }
 
 impl RaikiriContext for ComponentImports {
@@ -100,7 +103,9 @@ impl RaikiriContext for ComponentImports {
                             let aws_access_key = &secrets.iter().find(|(key, _)| key == "AWS_ACCESS_KEY_ID").unwrap().1;
                             let aws_secret_access_key = &secrets.iter().find(|(key, _)| key == "AWS_SECRET_ACCESS_KEY").unwrap().1;
                             let aws_region = &secrets.iter().find(|(key, _)| key == "AWS_REGION").unwrap().1;
-                            let dynamodb_connection_string = format!("{aws_access_key}:{aws_secret_access_key}:{aws_region}");
+                            // https://docs.aws.amazon.com/general/latest/gr/rande.html#ddb_region
+                            let aws_endpoint_url = &secrets.iter().find(|(key, _)| key == "AWS_ENDPOINT_URL").unwrap().1;
+                            let dynamodb_connection_string = format!("{aws_access_key}:{aws_secret_access_key}:{aws_region}:{aws_endpoint_url}");
                             let connection = data.environment.create_connection(RaikiriDBConnectionKind::DYNAMODB, dynamodb_connection_string.as_str().as_bytes().to_vec()).await;
                             let connection_id = uuid::Uuid::new_v4().to_string();
                             _ = data.environment.db_connections.insert(connection_id.clone(), connection);

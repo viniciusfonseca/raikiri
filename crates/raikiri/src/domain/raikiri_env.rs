@@ -24,6 +24,12 @@ pub struct RaikiriEnvironment {
     pub db_connections: scc::HashMap<String, Arc<dyn RaikiriDBConnection + Send + Sync>>
 }
 
+impl Default for RaikiriEnvironment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RaikiriEnvironment {
     pub fn new() -> Self {
         let mut config = Config::new();

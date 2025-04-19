@@ -123,10 +123,7 @@ async fn main() -> Result<(), ThreadSafeError> {
                     let request = InvokeRequest::new(conf.component.clone(), conf.method.clone(), conf.headers.clone(), conf.body.as_bytes().to_vec());
                     let username_component_name = request.username_component_name.clone();
                     let environment = RaikiriEnvironment::new();
-                    let component_imports = ComponentImports {
-                        call_stack: Vec::new(),
-                        environment: RaikiriEnvironment::new(),
-                    };
+                    let component_imports = ComponentImports::default();
                     let (username, component_name) = username_component_name.split_once('.').unwrap();
                     let secrets = environment.get_component_secrets(username.to_string(), component_name.to_string()).await?;
                     let response = environment.invoke_component(username_component_name.clone(), request.into(), Wasi::new(component_imports, secrets)).await?;
