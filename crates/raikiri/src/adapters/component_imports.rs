@@ -1,11 +1,7 @@
-use std::time::Duration;
-
 use futures::stream;
-use http::Response;
 use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
 use hyper::body::{Bytes, Frame};
-use testcontainers::bollard::secret;
-use wasmtime_wasi_http::types::{HostFutureIncomingResponse, IncomingResponse};
+use wasmtime_wasi_http::types::HostFutureIncomingResponse;
 
 use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_db::{RaikiriDBConnectionKind, RaikiriEnvironmentDB}, raikiri_env_invoke::{build_response, RaikiriEnvironmentInvoke}, raikiri_env_secrets::RaikiriEnvironmentSecrets};
 
@@ -68,8 +64,15 @@ impl RaikiriContext for ComponentImports {
                             let postgres_connection_string = &secrets.iter().find(|(key, _)| key == "POSTGRES_CONNECTION_STRING").unwrap().1;
                             let connection = data.environment.create_connection(RaikiriDBConnectionKind::POSTGRESQL, postgres_connection_string.as_str().as_bytes().to_vec()).await;
                             let connection_id = uuid::Uuid::new_v4().to_string();
-                            data.environment.db_connections.insert(connection_id.clone(), connection);
+                            _ = data.environment.db_connections.insert(connection_id.clone(), connection);
                             Ok(Ok(build_response(200, &connection_id).await))
+                        }
+                        "/query" => {
+                            let connection_id = request.headers().get("Connection-Id").unwrap().to_str().unwrap();
+                            let connection = data.environment.get_connection(connection_id.to_string()).await;
+                            let body = request.into_body().collect().await.unwrap().to_bytes().to_vec();
+                            let response = connection.query(body).await.unwrap();
+                            Ok(Ok(build_response(200, &String::from_utf8(response).unwrap()).await))
                         }
                         "/execute" => {
                             let connection_id = request.headers().get("Connection-Id").unwrap().to_str().unwrap();
