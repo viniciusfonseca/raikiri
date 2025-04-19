@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use scc::hash_map::OccupiedEntry;
-use tokio::sync::RwLock;
 
 use crate::adapters::db::postgresql::create_psql_connection;
 
@@ -18,7 +17,7 @@ pub enum RaikiriDBConnectionKind {
 #[async_trait]
 pub trait RaikiriEnvironmentDB {
     async fn create_connection(&self, kind: RaikiriDBConnectionKind, params: Vec<u8>) -> Arc<dyn RaikiriDBConnection + Send + Sync>; 
-    async fn get_connection(&self, id: String) -> OccupiedEntry<'_, std::string::String, Arc<dyn RaikiriDBConnection + Send + Sync + 'static>>;
+    async fn get_connection(&self, id: String) -> OccupiedEntry<'_, std::string::String, Arc<dyn RaikiriDBConnection + Send + Sync>>;
 }
 
 #[async_trait]
@@ -37,7 +36,7 @@ impl RaikiriEnvironmentDB for RaikiriEnvironment {
             RaikiriDBConnectionKind::DYNAMODB => todo!(),
         }
     }
-    async fn get_connection(&self, id: String) -> OccupiedEntry<'_, std::string::String, Arc<dyn RaikiriDBConnection + Send + Sync + 'static>> {
+    async fn get_connection(&self, id: String) -> OccupiedEntry<'_, std::string::String, Arc<dyn RaikiriDBConnection + Send + Sync>> {
         self.db_connections.get_async(&id).await.unwrap()
     }
 }

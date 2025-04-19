@@ -67,6 +67,45 @@ impl RaikiriContext for ComponentImports {
                             _ = data.environment.db_connections.insert(connection_id.clone(), connection);
                             Ok(Ok(build_response(200, &connection_id).await))
                         }
+                        "/mysql_connection" => {
+                            let caller = data.call_stack().last().unwrap();
+                            let secrets_entry = &data.environment.secrets_cache.get_entry_by_key_async_build(caller.clone(), async {
+                                data.environment.get_component_secrets(caller.to_string(), "secrets".to_string()).await.unwrap_or_else(|_| Vec::new())
+                            }).await;
+                            let secrets = secrets_entry.read().await;
+                            let mysql_connection_string = &secrets.iter().find(|(key, _)| key == "MYSQL_CONNECTION_STRING").unwrap().1;
+                            let connection = data.environment.create_connection(RaikiriDBConnectionKind::MYSQL, mysql_connection_string.as_str().as_bytes().to_vec()).await;
+                            let connection_id = uuid::Uuid::new_v4().to_string();
+                            _ = data.environment.db_connections.insert(connection_id.clone(), connection);
+                            Ok(Ok(build_response(200, &connection_id).await))
+                        }
+                        "/mongodb_connection" => {
+                            let caller = data.call_stack().last().unwrap();
+                            let secrets_entry = &data.environment.secrets_cache.get_entry_by_key_async_build(caller.clone(), async {
+                                data.environment.get_component_secrets(caller.to_string(), "secrets".to_string()).await.unwrap_or_else(|_| Vec::new())
+                            }).await;
+                            let secrets = secrets_entry.read().await;
+                            let mongodb_connection_string = &secrets.iter().find(|(key, _)| key == "MONGODB_CONNECTION_STRING").unwrap().1;
+                            let connection = data.environment.create_connection(RaikiriDBConnectionKind::MONGODB, mongodb_connection_string.as_str().as_bytes().to_vec()).await;
+                            let connection_id = uuid::Uuid::new_v4().to_string();
+                            _ = data.environment.db_connections.insert(connection_id.clone(), connection);
+                            Ok(Ok(build_response(200, &connection_id).await))
+                        },
+                        "/dynamodb_connection" => {
+                            let caller = data.call_stack().last().unwrap();
+                            let secrets_entry = &data.environment.secrets_cache.get_entry_by_key_async_build(caller.clone(), async {
+                                data.environment.get_component_secrets(caller.to_string(), "secrets".to_string()).await.unwrap_or_else(|_| Vec::new())
+                            }).await;
+                            let secrets = secrets_entry.read().await;
+                            let aws_access_key = &secrets.iter().find(|(key, _)| key == "AWS_ACCESS_KEY_ID").unwrap().1;
+                            let aws_secret_access_key = &secrets.iter().find(|(key, _)| key == "AWS_SECRET_ACCESS_KEY").unwrap().1;
+                            let aws_region = &secrets.iter().find(|(key, _)| key == "AWS_REGION").unwrap().1;
+                            let dynamodb_connection_string = format!("{aws_access_key}:{aws_secret_access_key}:{aws_region}");
+                            let connection = data.environment.create_connection(RaikiriDBConnectionKind::DYNAMODB, dynamodb_connection_string.as_str().as_bytes().to_vec()).await;
+                            let connection_id = uuid::Uuid::new_v4().to_string();
+                            _ = data.environment.db_connections.insert(connection_id.clone(), connection);
+                            Ok(Ok(build_response(200, &connection_id).await))
+                        },
                         "/query" => {
                             let connection_id = request.headers().get("Connection-Id").unwrap().to_str().unwrap();
                             let connection = data.environment.get_connection(connection_id.to_string()).await;
