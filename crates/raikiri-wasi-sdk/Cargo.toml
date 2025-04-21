@@ -1,0 +1,9 @@
+[package]
+name = "raikiri-wasi-sdk"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+waki.workspace = true
+serde_json = "1.0"
+serde = "1.0"

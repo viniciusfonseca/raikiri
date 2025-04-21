@@ -2175,6 +2175,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "raikiri-wasi-sdk"
+version = "1.2.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "waki",
+]
+
+[[package]]
 name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2920,6 +2929,7 @@ dependencies = [
 name = "test-programs"
 version = "0.0.0"
 dependencies = [
+ "raikiri-wasi-sdk",
  "serde",
  "serde_json",
  "waki",
@@ -3420,24 +3430,23 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "waki"
-version = "0.3.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "068839b80fb420247a7f1423fe30c4e768c0e8f9a16a62a85ecd68ef6a999f92"
+checksum = "6e2db2daf1dfbadf228fd8b3c22b96a359135fd673b3d2c203274ee6a0df9c77"
 dependencies = [
  "anyhow",
+ "form_urlencoded",
  "http",
  "serde",
- "serde_urlencoded",
- "url",
  "waki-macros",
  "wit-bindgen 0.34.0",
 ]
 
 [[package]]
 name = "waki-macros"
-version = "0.3.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89c18865d2c6c414628037585c1f2dda43a578d2f9ba1500fbb2927a5a3087ba"
+checksum = "a061143f321cc5eeb523f60bdbcd45cfc3ee8851f8cf24f7a4b963bddc5642eb"
 dependencies = [
  "proc-macro2",
  "quote",

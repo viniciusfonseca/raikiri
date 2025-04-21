@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use futures::stream;
+use http::HeaderValue;
 use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
 use hyper::body::{Bytes, Frame};
 use wasmtime_wasi_http::types::HostFutureIncomingResponse;
@@ -64,7 +65,9 @@ impl RaikiriContext for ComponentImports {
                                 data.environment.get_component_secrets(caller.to_string(), "secrets".to_string()).await.unwrap_or_else(|_| Vec::new())
                             }).await;
                             let secrets = secrets_entry.read().await;
-                            let postgres_connection_string = &secrets.iter().find(|(key, _)| key == "POSTGRES_CONNECTION_STRING").unwrap().1;
+                            let default_secret_name_header = &HeaderValue::from_static("POSTGRES_CONNECTION_STRING");
+                            let secret_name = request.headers().get("Connection-String-Secret-Name").unwrap_or(default_secret_name_header).to_str().unwrap();
+                            let postgres_connection_string = &secrets.iter().find(|(key, _)| key == secret_name).unwrap().1;
                             let connection = data.environment.create_connection(RaikiriDBConnectionKind::POSTGRESQL, postgres_connection_string.as_str().as_bytes().to_vec()).await;
                             let connection_id = uuid::Uuid::new_v4().to_string();
                             _ = data.environment.db_connections.insert(connection_id.clone(), connection);
