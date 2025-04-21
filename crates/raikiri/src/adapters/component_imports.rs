@@ -118,7 +118,7 @@ impl RaikiriContext for ComponentImports {
                             let connection_id = request.headers().get("Connection-Id").unwrap().to_str().unwrap();
                             let connection = data.environment.get_connection(connection_id.to_string()).await;
                             let body = request.into_body().collect().await.unwrap().to_bytes().to_vec();
-                            let response = connection.query(body).await.unwrap();
+                            let response = connection.fetch_rows(body).await.unwrap();
                             Ok(Ok(build_response(200, &String::from_utf8(response).unwrap()).await))
                         }
                         "/execute" => {

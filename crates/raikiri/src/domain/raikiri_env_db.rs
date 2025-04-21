@@ -22,7 +22,7 @@ pub trait RaikiriEnvironmentDB {
 
 #[async_trait]
 pub trait RaikiriDBConnection {
-    async fn query(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError>;
+    async fn fetch_rows(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError>;
     async fn execute_command(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError>;
 }
 

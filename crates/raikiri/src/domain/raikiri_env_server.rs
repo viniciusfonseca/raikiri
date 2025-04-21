@@ -153,12 +153,6 @@ mod tests {
 
     use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::{handle_request, RaikiriEnvironmentServer}, tests::{create_test_env, make_put_component_request}};
 
-    impl Drop for RaikiriEnvironment {
-        fn drop(&mut self) {
-            _ = std::fs::remove_dir_all(self.fs_root.clone());
-        }
-    }
-
     #[tokio::test]
     async fn test_start_server() -> Result<()> {
 

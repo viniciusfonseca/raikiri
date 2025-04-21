@@ -14,6 +14,12 @@ pub mod tests {
 
     use super::{raikiri_env::RaikiriEnvironment, raikiri_env_server::RaikiriEnvironmentServer};
 
+    impl Drop for RaikiriEnvironment {
+        fn drop(&mut self) {
+            _ = std::fs::remove_dir_all(self.fs_root.clone());
+        }
+    }
+
     pub fn create_test_dir() -> String {
         let random_uuid = uuid::Uuid::new_v4().to_string();
         let tmp_path = format!("/tmp/raikiri-{random_uuid}");

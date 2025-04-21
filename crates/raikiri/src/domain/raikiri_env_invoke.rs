@@ -9,7 +9,7 @@ use wasmtime_wasi_http::{bindings::http::types::Scheme, hyper_request_error, typ
 
 use crate::{adapters::{wasi_http_view::stream_from_string, context::RaikiriContext}, Wasi};
 
-use super::{raikiri_env::{ComponentEvent, RaikiriEnvironment}, raikiri_env_component::RaikiriComponentStorage, raikiri_env_fs::RaikiriEnvironmentFS};
+use super::{raikiri_env::{ComponentEvent, RaikiriEnvironment}, raikiri_env_component::RaikiriComponentStorage};
 
 #[async_trait]
 pub trait RaikiriEnvironmentInvoke {
