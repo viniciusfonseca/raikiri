@@ -62,8 +62,10 @@ impl RaikiriDBConnection for tokio_postgres::Client {
             .map(|v| v.as_ref())
             .collect::<Vec<&(dyn ToSql + Sync + Send)>>();
         let params = slice_iter(&params);
-        let result = self.execute_raw(&stmt, params).await?;
-        Ok(result.to_string().as_bytes().to_vec())
+        match self.execute_raw(&stmt, params).await {
+            Ok(result) => Ok(result.to_string().as_bytes().to_vec()),
+            Err(e) => Err(e.into()),
+        }
     }    
 
     async fn fetch_rows(&self, params: Vec<u8>) -> Result<Vec<u8>, ThreadSafeError> {
@@ -226,6 +228,10 @@ mod tests {
         let body = String::from_utf8(body.to_bytes().to_vec()).unwrap();
 
         assert_eq!(parts.status, StatusCode::OK);
+
+        let res = serde_json::from_str::<Vec<serde_json::Value>>(&body).unwrap();
+        assert_eq!(res[0].get("id").unwrap().as_str().unwrap(), "1");
+        assert_eq!(res[0].get("balance").unwrap().as_i64().unwrap(), 0);
 
         Ok(())
     }
