@@ -124,7 +124,9 @@ fn slice_iter<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{adapters::db::postgresql::create_psql_connection, domain::{raikiri_env::ThreadSafeError, raikiri_env_db::RaikiriDBConnection, raikiri_env_fs::RaikiriEnvironmentFS, tests::create_test_env}};
+    use crate::{adapters::db::postgresql::create_psql_connection, domain::{raikiri_env::ThreadSafeError, raikiri_env_db::RaikiriDBConnection, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::handle_request, tests::{create_test_env, make_invoke_component_request, make_put_component_request, make_update_components_secrets_request}}};
+    use http::StatusCode;
+    use http_body_util::BodyExt;
     use serde_json::json;
     use testcontainers::runners::AsyncRunner;
     use testcontainers_modules::postgres;
@@ -185,6 +187,45 @@ mod tests {
         let res = serde_json::from_slice::<Vec<serde_json::Value>>(&res)?;
         assert!(res[0].get("id").unwrap().as_str().unwrap() == account_id);
         assert!(res[0].get("balance").unwrap().as_i64().unwrap() == 0);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_program() -> Result<(), ThreadSafeError> {
+        let env = create_test_env();
+        env.setup_fs().await?;
+
+        let pg_container = postgres::Postgres::default().start().await?;
+        let host_port = pg_container.get_host_port_ipv4(POSTGRES_PORT).await?;
+        let connection_string = &format!(
+            "postgres://postgres:postgres@127.0.0.1:{host_port}/postgres",
+        );
+
+        let connection = create_psql_connection(connection_string.as_bytes().to_vec()).await?;
+
+        let params = json!({"sql": "CREATE TABLE accounts(id VARCHAR(255), balance INT);", "params": []}).to_string();
+        connection.execute_command(params.into_bytes()).await?;
+
+        let req = make_put_component_request(test_programs_artifacts::API_RAIKIRI_POSTGRES_COMPONENT, "postgres").await;
+        let res = handle_request(&env, req).await;
+
+        assert_eq!(res.unwrap().status(), StatusCode::OK);
+
+        let secrets_content = format!("PG_CONNECTION_STRING: {connection_string}").as_bytes().to_vec();
+        let req = make_update_components_secrets_request("postgres", secrets_content).await;
+        let res = handle_request(&env, req).await;
+
+        assert_eq!(res.unwrap().status(), StatusCode::OK);
+
+        let req = make_invoke_component_request("test.postgres", "GET", "").await;
+        let res = handle_request(&env, req).await;
+        let (parts, body) = res.unwrap().into_parts();
+
+        let body = body.collect().await.unwrap();
+        let body = String::from_utf8(body.to_bytes().to_vec()).unwrap();
+
+        assert_eq!(parts.status, StatusCode::OK);
 
         Ok(())
     }

@@ -110,7 +110,6 @@ pub async fn handle_request<B>(_self: &RaikiriEnvironment, request: Request<B>) 
             
             let secrets_entry = _self.secrets_cache
                 .get_entry_by_key_async_build(username_component_name.clone(), async {
-                    // split username_component_name into username and component name by dot
                     let (username, component_name) = username_component_name.split_once('.').unwrap();
                     _self.get_component_secrets(username.to_string(), component_name.to_string())
                         .await
@@ -119,7 +118,7 @@ pub async fn handle_request<B>(_self: &RaikiriEnvironment, request: Request<B>) 
                 .await;
             let secrets = secrets_entry.read().await;
             let component_imports = ComponentImports {
-                call_stack: Vec::new(),
+                call_stack: vec![username_component_name.clone()],
                 environment: _self.clone(),
                 db_connections: Default::default()
             };
@@ -133,6 +132,17 @@ pub async fn handle_request<B>(_self: &RaikiriEnvironment, request: Request<B>) 
 
             let (parts, body) = response.resp.into_parts();
             Ok(hyper::Response::from_parts(parts, body))
+        }
+        "Update-Component-Secrets" => {
+            let component_name = request.headers().get("Component-Id").unwrap()
+                .to_str().unwrap().to_string();
+            let secrets_content = BoxBody::new(request.into_body()).collect().await.unwrap().to_bytes().to_vec();
+            _self.update_component_secrets(_self.username.clone(), component_name, secrets_content).await.unwrap();
+            Ok(Response::builder()
+                .status(200)
+                .body(RaikiriEnvironment::response_body("").await)
+                .map_err(|_| ErrorCode::ConnectionReadTimeout)
+                .unwrap())
         }
         _ => {
             return Ok(Response::builder()
@@ -148,10 +158,10 @@ pub async fn handle_request<B>(_self: &RaikiriEnvironment, request: Request<B>) 
 mod tests {
 
     use anyhow::{Ok, Result};
-    use http::{Request, StatusCode};
+    use http::StatusCode;
     use http_body_util::BodyExt;
 
-    use crate::domain::{raikiri_env::RaikiriEnvironment, raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::{handle_request, RaikiriEnvironmentServer}, tests::{create_test_env, make_put_component_request}};
+    use crate::domain::{raikiri_env_fs::RaikiriEnvironmentFS, raikiri_env_server::handle_request, tests::{create_test_env, make_invoke_component_request, make_put_component_request}};
 
     #[tokio::test]
     async fn test_start_server() -> Result<()> {
@@ -159,15 +169,8 @@ mod tests {
         let environment = create_test_env();
         environment.setup_fs().await.unwrap();
 
-        let request = Request::builder()
-            .uri("/")
-            .method("GET")
-            .header("Platform-Command", "Invoke-Component")
-            .header("Component-Id", "test404.hello")
-            .body(RaikiriEnvironment::response_body("Hello World").await)
-            .unwrap();
-
-        let res = handle_request(&environment, request).await;
+        let req = make_invoke_component_request("test.hello404", "GET", "").await;
+        let res = handle_request(&environment, req).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::NOT_FOUND);
 
@@ -180,22 +183,14 @@ mod tests {
         let environment = create_test_env();
         environment.setup_fs().await.unwrap();
 
-        let req = make_put_component_request(test_programs_artifacts::API_PROXY_COMPONENT).await;
+        let req = make_put_component_request(test_programs_artifacts::API_PROXY_COMPONENT, "hello").await;
         let res = handle_request(&environment, req).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::OK);
 
-        // send command to invoke component
-        let request = Request::builder()
-            .uri("https://localhost:8080")
-            .method("GET")
-            .header("Platform-Command", "Invoke-Component")
-            .header("Component-Id", "test.hello")
-            .header("Host", "localhost:8080")
-            .body(RaikiriEnvironment::response_body("").await)
-            .unwrap();
-
-        let res = handle_request(&environment, request).await;
+        let req = make_invoke_component_request("test.hello", "GET", "").await;
+        let res = handle_request(&environment, req).await;
+        
         let (parts, body) = res.unwrap().into_parts();
 
         let body = body.collect().await.unwrap();
@@ -213,23 +208,13 @@ mod tests {
         let environment = create_test_env();
         environment.setup_fs().await.unwrap();
 
-        // put component
-        let req = make_put_component_request(test_programs_artifacts::API_RAIKIRI_HELLO_COMPONENT).await;
+        let req = make_put_component_request(test_programs_artifacts::API_RAIKIRI_HELLO_COMPONENT, "hello").await;
         let res = handle_request(&environment, req).await;
 
         assert_eq!(res.unwrap().status(), StatusCode::OK);
 
-        // send command to invoke component
-        let request = Request::builder()
-            .uri("https://localhost:8080")
-            .method("GET")
-            .header("Platform-Command", "Invoke-Component")
-            .header("Component-Id", "test.hello")
-            .header("Host", "localhost:8080")
-            .body(RaikiriEnvironment::response_body("").await)
-            .unwrap();
-
-        let res = handle_request(&environment, request).await;
+        let req = make_invoke_component_request("test.hello", "GET", "").await;
+        let res = handle_request(&environment, req).await;
         let (parts, body) = res.unwrap().into_parts();
 
         let body = body.collect().await.unwrap();

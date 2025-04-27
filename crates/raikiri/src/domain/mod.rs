@@ -33,15 +33,38 @@ pub mod tests {
             .with_fs_root(create_test_dir())
     }
 
-    pub async fn make_put_component_request(path: &str) -> Request<BoxBody<Bytes, hyper::Error>> {
+    pub async fn make_put_component_request(path: &str, component_name: &str) -> Request<BoxBody<Bytes, hyper::Error>> {
         let component = tokio::fs::read(path).await.unwrap();
         let body: BoxBody<Bytes, hyper::Error> = RaikiriEnvironment::response_body_bytes(component).await;
         Request::builder()
             .uri("/")
             .method("POST")
             .header("Platform-Command", "Put-Component")
-            .header("Component-Id", "hello")
+            .header("Component-Id", component_name)
             .body(body)
+            .unwrap()
+    }
+
+    pub async fn make_invoke_component_request<T>(component_name: &str, method: &str, body: T) -> Request<BoxBody<Bytes, hyper::Error>>
+        where T: ToString + Send
+    {
+        Request::builder()
+            .uri("https://localhost:8080")
+            .method(method)
+            .header("Platform-Command", "Invoke-Component")
+            .header("Component-Id", component_name)
+            .header("Host", "localhost:8080")
+            .body(RaikiriEnvironment::response_body(body).await)
+            .unwrap()
+    }
+
+    pub async fn make_update_components_secrets_request(component_name: &str, body: Vec<u8>) -> Request<BoxBody<Bytes, hyper::Error>> {
+        Request::builder()
+            .uri("/")
+            .method("POST")
+            .header("Platform-Command", "Update-Component-Secrets")
+            .header("Component-Id", component_name)
+            .body(RaikiriEnvironment::response_body_bytes(body).await)
             .unwrap()
     }
 }
