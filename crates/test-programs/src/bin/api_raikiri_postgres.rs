@@ -3,8 +3,8 @@ use raikiri_wasi_sdk::*;
 #[handler]
 fn hello(_req: Request) -> Result<Response, ErrorCode> {
 
-    let connection = PgConnectionBuilder::new()
-        .from_secret("PG_CONNECTION_STRING")
+    let connection = SqlConnectionBuilder::new()
+        .with_connection_type("postgres")
         .build();
 
     let _rows_affected = connection.execute_sql("INSERT INTO accounts (id, balance) VALUES ('1', 0);", &[] as &[&str]);

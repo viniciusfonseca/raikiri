@@ -9,40 +9,49 @@ trait DbConnection {
     fn query(&self, params: Vec<u8>) -> Vec<u8>;
 }
 
-pub struct PostgresConnection {
+pub struct SqlConnection {
     connection_id: String,
 }
 
-pub struct PgConnectionBuilder {
+pub struct SqlConnectionBuilder {
+    connection_type: Option<String>,
     connection_string_secret_name: Option<String>
 }
 
-impl PgConnectionBuilder {
+impl SqlConnectionBuilder {
     pub fn new() -> Self {
         Self {
+            connection_type: None,
             connection_string_secret_name: None
         }
     }
 
-    pub fn from_secret(mut self, connection_string_secret_name: &str) -> Self {
+    pub fn with_connection_type(mut self, connection_type: &str) -> Self {
+        self.connection_type = Some(connection_type.to_string());
+        self
+    }
+
+    pub fn with_connection_string_secret_name(mut self, connection_string_secret_name: &str) -> Self {
         self.connection_string_secret_name = Some(connection_string_secret_name.to_string());
         self
     }
 
-    pub fn build(self) -> PostgresConnection {
+    pub fn build(self) -> SqlConnection {
 
-        let connection_id = Client::new().post("https://raikiri.db/postgres_connection")
+        let url = format!("https://raikiri.db/{}_connection", self.connection_type.unwrap());
+
+        let connection_id = Client::new().post(&url)
             .header("Connection-String-Secret-Name", &self.connection_string_secret_name.unwrap_or("POSTGRES_CONNECTION_STRING".to_string()))
             .send().unwrap()
             .body().unwrap();
 
-        PostgresConnection {
+        SqlConnection {
             connection_id: String::from_utf8(connection_id).unwrap(),
         }
     }
 }
 
-impl PostgresConnection {
+impl SqlConnection {
     pub fn execute_sql(&self, sql: &str, params: &[impl Serialize]) -> i32 {
         let params = json!({"sql": sql, "params": params}).to_string();
         self.execute(params.as_bytes().to_vec())
@@ -53,7 +62,7 @@ impl PostgresConnection {
     }
 }
 
-impl DbConnection for PostgresConnection {
+impl DbConnection for SqlConnection {
     fn execute(&self, params: Vec<u8>) -> i32 {
         let connection_id = Client::new().post("https://raikiri.db/execute")
             .header("Connection-Id", &self.connection_id)

@@ -210,26 +210,26 @@ mod tests {
         connection.execute_command(params.into_bytes()).await?;
 
         let req = make_put_component_request(test_programs_artifacts::API_RAIKIRI_POSTGRES_COMPONENT, "postgres").await;
-        let res = handle_request(&env, req).await;
+        let res = handle_request(&env, req).await?;
 
-        assert_eq!(res.unwrap().status(), StatusCode::OK);
+        assert_eq!(res.status(), StatusCode::OK);
 
-        let secrets_content = format!("PG_CONNECTION_STRING: {connection_string}").as_bytes().to_vec();
+        let secrets_content = format!("POSTGRES_CONNECTION_STRING: {connection_string}").as_bytes().to_vec();
         let req = make_update_components_secrets_request("postgres", secrets_content).await;
-        let res = handle_request(&env, req).await;
+        let res = handle_request(&env, req).await?;
 
-        assert_eq!(res.unwrap().status(), StatusCode::OK);
+        assert_eq!(res.status(), StatusCode::OK);
 
         let req = make_invoke_component_request("test.postgres", "GET", "").await;
-        let res = handle_request(&env, req).await;
-        let (parts, body) = res.unwrap().into_parts();
+        let res = handle_request(&env, req).await?;
+        let (parts, body) = res.into_parts();
 
-        let body = body.collect().await.unwrap();
-        let body = String::from_utf8(body.to_bytes().to_vec()).unwrap();
+        let body = body.collect().await?;
+        let body = String::from_utf8(body.to_bytes().to_vec())?;
 
         assert_eq!(parts.status, StatusCode::OK);
 
-        let res = serde_json::from_str::<Vec<serde_json::Value>>(&body).unwrap();
+        let res = serde_json::from_str::<Vec<serde_json::Value>>(&body)?;
         assert_eq!(res[0].get("id").unwrap().as_str().unwrap(), "1");
         assert_eq!(res[0].get("balance").unwrap().as_i64().unwrap(), 0);
 
